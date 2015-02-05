@@ -1,7 +1,0 @@
-build
-.cproject
-.project
-.settings
-_tests_fail
-_tests_ok
-*.gcov
