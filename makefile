@@ -29,17 +29,22 @@ MKDIR = mkdir -p
 #
 ###############
 
-CFILES_TEST = niffs.c
+CFILES = niffs.c
 
-CFILES = main.c \
+CFILES_TEST = main.c \
 	niffs_test_emul.c \
 	niffs_func_tests.c \
 	niffs_cfg_tests.c \
 	testsuites.c \
 	testrunner.c
 INCLUDE_DIRECTIVES = -I./${sourcedir} -I./${sourcedir}/default -I./${sourcedir}/test 
-CFLAGS = $(INCLUDE_DIRECTIVES) 
-CFLAGS_TEST = $(CFLAGS) -Wall -fprofile-arcs -ftest-coverage
+CFLAGS_ALL = $(INCLUDE_DIRECTIVES) 
+CFLAGS = $(CFLAGS_ALL)  -fprofile-arcs -ftest-coverage
+COMPILEROPTIONS_EXTRA = -Wall \
+-Wall -Wno-format-y2k -W -Wstrict-prototypes -Wmissing-prototypes \
+-Wpointer-arith -Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch \
+-Wshadow -Wcast-align -Wchar-subscripts -Winline -Wnested-externs\
+-Wredundant-decls
 		
 ############
 #
@@ -49,48 +54,48 @@ CFLAGS_TEST = $(CFLAGS) -Wall -fprofile-arcs -ftest-coverage
 
 vpath %.c ${sourcedir} ${sourcedir}/default ${sourcedir}/test
 
-OBJFILES = $(CFILES:%.c=${builddir}/%.o)
-
-DEPFILES = $(CFILES:%.c=${builddir}/%.d)
-
 OBJFILES_TEST = $(CFILES_TEST:%.c=${builddir}/%.o)
 
 DEPFILES_TEST = $(CFILES_TEST:%.c=${builddir}/%.d)
 
+OBJFILES = $(CFILES:%.c=${builddir}/%.o)
+
+DEPFILES = $(CFILES:%.c=${builddir}/%.d)
+
 ALLOBJFILES += $(OBJFILES) $(OBJFILES_TEST)
 
-DEPENDENCIES = $(DEPFILES) 
+DEPENDENCIES = $(DEPFILES) $(DEPFILES_TEST) 
 
 # link object files, create binary
 $(BINARY): $(ALLOBJFILES)
 	@echo "... linking"
-	@${CC} $(CFLAGS_TEST) $(LINKEROPTIONS) -o ${builddir}/$(BINARY) $(ALLOBJFILES) $(LIBS)
+	@${CC} $(CFLAGS) $(LINKEROPTIONS) -o ${builddir}/$(BINARY) $(ALLOBJFILES) $(LIBS)
 
 -include $(DEPENDENCIES)	   	
-
-# compile c files
-$(OBJFILES) : ${builddir}/%.o:%.c
-		@echo "... compile $@"
-		@${CC} $(CFLAGS) -g -c -o $@ $<
-
-# make dependencies
-$(DEPFILES) : ${builddir}/%.d:%.c
-		@echo "... depend $@"; \
-		rm -f $@; \
-		${CC} $(CFLAGS) -M $< > $@.$$$$; \
-		sed 's,\($*\)\.o[ :]*, ${builddir}/\1.o $@ : ,g' < $@.$$$$ > $@; \
-		rm -f $@.$$$$
 
 # compile c files test
 $(OBJFILES_TEST) : ${builddir}/%.o:%.c
 		@echo "... compile $@"
-		@${CC} $(CFLAGS_TEST) -g -c -o $@ $<
+		@${CC} $(CFLAGS_ALL) -g -c -o $@ $<
 
-# make dependencies test
+# make dependencies
 $(DEPFILES_TEST) : ${builddir}/%.d:%.c
 		@echo "... depend $@"; \
 		rm -f $@; \
-		${CC} $(CFLAGS_TEST) -M $< > $@.$$$$; \
+		${CC} $(CFLAGS_ALL) -M $< > $@.$$$$; \
+		sed 's,\($*\)\.o[ :]*, ${builddir}/\1.o $@ : ,g' < $@.$$$$ > $@; \
+		rm -f $@.$$$$
+
+# compile c files
+$(OBJFILES) : ${builddir}/%.o:%.c
+		@echo "... compile $@"
+		@${CC} $(CFLAGS) $(COMPILEROPTIONS_EXTRA) -g -c -o $@ $<
+
+# make dependencies test
+$(DEPFILES) : ${builddir}/%.d:%.c
+		@echo "... depend $@"; \
+		rm -f $@; \
+		${CC} $(CFLAGS) -M $< > $@.$$$$; \
 		sed 's,\($*\)\.o[ :]*, ${builddir}/\1.o $@ : ,g' < $@.$$$$ > $@; \
 		rm -f $@.$$$$
 
@@ -101,7 +106,7 @@ mkdirs:
 
 test: $(BINARY)
 		./build/$(BINARY)
-		@for cfile in $(CFILES_TEST); do \
+		@for cfile in $(CFILES); do \
 			gcov -o ${builddir} ${src}/$$cfile | \
 			sed -nr "1 s/File '(.*)'/\1/p;2 s/Lines executed:(.*)/: \1 lines/p" | \
 			sed 'N;s/\n/ /'; \

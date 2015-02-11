@@ -13,6 +13,10 @@
 #include <stddef.h>
 #include <string.h>
 
+#define NIFFS_DUMP
+#define NIFFS_DUMP_OUT(...) printf(__VA_ARGS__)
+#define NIFFS_TEST
+
 typedef unsigned int u32_t;
 typedef unsigned short u16_t;
 typedef unsigned char u8_t;
@@ -26,7 +30,7 @@ typedef signed char s8_t;
 #define TEST_CHECK_WRITE_ON_NONERASED_DATA_OTHER_THAN_ZERO
 
 #define EMUL_ADDR_START         0x08000000
-#define EMUL_SECTORS            32
+#define EMUL_SECTORS            8
 #define EMUL_SECTOR_SIZE        1024
 
 #define TEST_PARAM_PAGE_SIZE    128

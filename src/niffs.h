@@ -16,17 +16,20 @@
 
 #define NIFFS_OK                            0
 #define ERR_NIFFS_BAD_CONF                  -1
-#define ERR_NIFFS_DELETING_FREE_PAGE        -2
-#define ERR_NIFFS_DELETING_DELETED_PAGE     -3
-#define ERR_NIFFS_MOVING_FREE_PAGE          -4
-#define ERR_NIFFS_MOVING_DELETED_PAGE       -5
-#define ERR_NIFFS_MOVING_TO_UNFREE_PAGE     -6
-#define ERR_NIFFS_NO_FREE_PAGE              -7
-#define ERR_NIFFS_SECTOR_UNFORMATTABLE      -8
-#define ERR_NIFFS_NULL_PTR                  -9
-#define ERR_NIFFS_NO_FREE_ID                -10
-#define ERR_NIFFS_WR_PHDR_UNFREE_PAGE       -11
-#define ERR_NIFFS_WR_PHDR_BAD_ID            -12
+#define ERR_NIFFS_BAD_SECTOR                -2
+#define ERR_NIFFS_DELETING_FREE_PAGE        -3
+#define ERR_NIFFS_DELETING_DELETED_PAGE     -4
+#define ERR_NIFFS_MOVING_FREE_PAGE          -5
+#define ERR_NIFFS_MOVING_DELETED_PAGE       -6
+#define ERR_NIFFS_MOVING_TO_UNFREE_PAGE     -7
+#define ERR_NIFFS_NO_FREE_PAGE              -8
+#define ERR_NIFFS_SECTOR_UNFORMATTABLE      -9
+#define ERR_NIFFS_NULL_PTR                  -10
+#define ERR_NIFFS_NO_FREE_ID                -11
+#define ERR_NIFFS_WR_PHDR_UNFREE_PAGE       -12
+#define ERR_NIFFS_WR_PHDR_BAD_ID            -13
+#define ERR_NIFFS_NAME_CONFLICT             -14
+#define ERR_NIFFS_FULL                      -15
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
 typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);
@@ -42,6 +45,7 @@ typedef struct {
 } niffs_file_desc;
 
 typedef struct {
+  // cfg
   u8_t *phys_addr;
   u32_t sectors;
   u32_t sector_size;
@@ -53,8 +57,12 @@ typedef struct {
   niffs_hal_write_f hal_wr;
   niffs_hal_erase_f hal_er;
 
+  // dyna
   u32_t pages_per_sector;
   niffs_page_ix last_free_pix;
+  u8_t mounted;
+  u32_t free_pages;
+  u32_t dele_pages;
 
 } niffs;
 
@@ -69,15 +77,19 @@ int NIFFS_init(niffs *fs,
     niffs_hal_write_f write_f
     );
 int NIFFS_mount(niffs *fs);
-int NIFFS_creat(niffs *fs, const char *name);
-niffs_fd NIFFS_open(niffs *fs, const char *name, u8_t flags);
+int NIFFS_creat(niffs *fs, char *name);
+niffs_fd NIFFS_open(niffs *fs, char *name, u8_t flags);
 int NIFFS_read_ptr(niffs *fs, niffs_fd fd, const u8_t **ptr, u32_t *len);
 int NIFFS_seek(niffs *fs, niffs_fd fd, s32_t offs, int whence);
 int NIFFS_remove(niffs *fs, niffs_fd fd);
 int NIFFS_write(niffs *fs, niffs_fd fd, u8_t *data, u32_t len);
 int NIFFS_flush(niffs *fs, niffs_fd fd);
 int NIFFS_close(niffs *fs, niffs_fd fd);
+int NIFFS_rename(niffs *fs, char *old_path, char *new_path);
 int NIFFS_unmount(niffs *fs);
 int NIFFS_format(niffs *fs);
+#ifdef NIFFS_DUMP
+void NIFFS_dump(niffs *fs);
+#endif
 
 #endif /* NIFFS_H_ */

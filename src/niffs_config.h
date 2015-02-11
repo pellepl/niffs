@@ -18,6 +18,12 @@
 #define NIFFS_DBG(...)
 #endif
 
+#ifdef NIFFS_DUMP
+#ifndef NIFFS_DUMP_OUT
+#define NIFFS_DUMP_OUT(...)
+#endif
+#endif
+
 #ifndef NIFFS_ASSERT
 #define NIFFS_ASSERT(x)
 #endif
