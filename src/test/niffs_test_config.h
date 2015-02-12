@@ -24,14 +24,18 @@ typedef signed int s32_t;
 typedef signed short s16_t;
 typedef signed char s8_t;
 
+#define MIN(x,y) ((x)>(y)?(y):(x))
+#define MAX(x,y) ((x)>(y)?(x):(y))
+
 // test config
 
 #define TEST_CHECK_UNALIGNED_ACCESS
 #define TEST_CHECK_WRITE_ON_NONERASED_DATA_OTHER_THAN_ZERO
 
-#define EMUL_ADDR_START         0x08000000
 #define EMUL_SECTORS            8
 #define EMUL_SECTOR_SIZE        1024
+
+#define EMUL_FILE_DESCS         4
 
 #define TEST_PARAM_PAGE_SIZE    128
 
@@ -44,6 +48,13 @@ typedef signed char s8_t;
 #define NIFFS_OBJ_ID_BITS       (8)
 #define NIFFS_SPAN_IX_BITS      (6)
 #define NIFFS_WORD_ALIGN        (2)
+
+#define NIFFS_ASSERT(x) do { \
+  if (!(x)) { \
+    printf("ASSERT on %s:%i\n", __FILE__, __LINE__); \
+    exit(0); \
+  } \
+} while (0)
 
 // test internals
 

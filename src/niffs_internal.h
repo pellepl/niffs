@@ -71,9 +71,10 @@
  *
  * File trunc:
  *   trunc to zero/rm:
- *      delete obj hdr
+ *      set obj hdr file len to 0
  *      delete all pages with same id
  *      if aborted, check will clean
+ *      delete obj hdr
  *   trunc to size:
  *      mark obj hdr MOVi
  *      create new obj hdr with correct size as WRIT
@@ -90,7 +91,8 @@
  *   if CLEA, aborted in midst of writing file - delete
  *
  *   remove orphans - check for WRIT && MOVI with ids and spix > 0 having no corresponding page with spix == 0, remove all
- *   file length - TODO figure out
+ *   file length - remove all pages where spix is beyond file size, if length == 0, also remove obj hdr
+ *   if obj hdr flag is WRIT, but length is UNDEF, fail during append, remove all containing same id
  *
  *  Created on: Feb 3, 2015
  *      Author: petera
@@ -145,10 +147,17 @@
   ((_fs)->page_size - sizeof(niffs_page_hdr) - ((_spix) == 0 ? sizeof(niffs_object_hdr) : 0))
 
 #define _NIFFS_OFFS_2_SPIX(_fs, _offs) ( \
-  (_offs) < _NIFFS_PDATA_LEN(_fs, 0) ? 0 : \
-      (1 + (((_offs) - _NIFFS_PDATA_LEN(_fs, 0)) / _NIFFS_PDATA_LEN(_fs, 1))) \
+  (_offs) < _NIFFS_SPIX_2_PDATA_LEN(_fs, 0) ? 0 : \
+      (1 + (((_offs) - _NIFFS_SPIX_2_PDATA_LEN(_fs, 0)) / _NIFFS_SPIX_2_PDATA_LEN(_fs, 1))) \
 )
 
+#define _NIFFS_OFFS_2_SPIX_OFFS(_fs, _offs) ( \
+  (_offs) < _NIFFS_SPIX_2_PDATA_LEN(_fs, 0) ? (_offs) : \
+      (((_offs) - _NIFFS_SPIX_2_PDATA_LEN(_fs, 0)) % _NIFFS_SPIX_2_PDATA_LEN(_fs, 1)) \
+)
+
+#define _NIFFS_IS_ID_VALID(phdr) ((phdr)->id.obj_id != (niffs_obj_id)-1 && (phdr)-> id.obj_id != 0)
+#define _NIFFS_IS_OBJ_HDR(phdr) (_NIFFS_IS_ID_VALID(phdr) && (phdr->id.spix) == 0)
 
 #define NIFFS_EXCL_SECT_NONE  (u32_t)-1
 #define NIFFS_UNDEF_LEN       (u32_t)-1
@@ -181,13 +190,15 @@ typedef struct {
 } niffs_object_hdr;
 
 #ifdef NIFFS_TEST
-int niffs_find_free_id(niffs *fs, niffs_obj_id *id, char *conflict_name);
-int niffs_find_free_page(niffs *fs, niffs_page_ix *pix, u32_t excl_sector);
-int niffs_erase_sector(niffs *fs, u32_t sector_ix);
-int niffs_delete_page(niffs *fs, niffs_page_ix pix);
-int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix);
-int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr);
-int niffs_create(niffs *fs, char *name);
+TESTATIC int niffs_find_free_id(niffs *fs, niffs_obj_id *id, char *conflict_name);
+TESTATIC int niffs_find_free_page(niffs *fs, niffs_page_ix *pix, u32_t excl_sector);
+TESTATIC int niffs_erase_sector(niffs *fs, u32_t sector_ix);
+TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix);
+TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix);
+TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr);
+TESTATIC int niffs_create(niffs *fs, char *name);
+TESTATIC int niffs_open(niffs *fs, char *name);
+TESTATIC int niffs_append(niffs *fs, int fd_ix, u8_t *buf, u32_t len);
 #endif
 
 

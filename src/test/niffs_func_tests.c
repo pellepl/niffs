@@ -146,4 +146,65 @@ TEST(func_creat_full) {
   return TEST_RES_OK;
 } TEST_END(func_creat_full)
 
+TEST(func_delete_basic) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK(NIFFS_mount(&fs) == NIFFS_OK);
+  TEST_CHECK(niffs_delete_page(&fs, 0) == ERR_NIFFS_DELETING_FREE_PAGE);
+  TEST_CHECK(niffs_create(&fs, "moo") == NIFFS_OK);
+  TEST_CHECK(niffs_delete_page(&fs, 0) == NIFFS_OK);
+  TEST_CHECK(niffs_delete_page(&fs, 0) == ERR_NIFFS_DELETING_DELETED_PAGE);
+
+  return TEST_RES_OK;
+} TEST_END(func_delete_basic)
+
+TEST(func_move_basic) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK(NIFFS_mount(&fs) == NIFFS_OK);
+  TEST_CHECK(niffs_move_page(&fs, 0, 0) == ERR_NIFFS_MOVING_TO_SAME_PAGE);
+  TEST_CHECK(niffs_move_page(&fs, 0, 1) == ERR_NIFFS_MOVING_FREE_PAGE);
+  TEST_CHECK(niffs_create(&fs, "moo") == NIFFS_OK);
+  TEST_CHECK(niffs_move_page(&fs, 0, 1) == NIFFS_OK);
+  TEST_CHECK(niffs_move_page(&fs, 0, 1) == ERR_NIFFS_MOVING_DELETED_PAGE);
+  TEST_CHECK(niffs_move_page(&fs, 1, 0) == ERR_NIFFS_MOVING_TO_UNFREE_PAGE);
+
+  return TEST_RES_OK;
+} TEST_END(func_move_basic)
+
+TEST(func_open_basic) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK(NIFFS_mount(&fs) == NIFFS_OK);
+
+  int fd = niffs_open(&fs, "test");
+  TEST_CHECK(fd == ERR_NIFFS_FILE_NOT_FOUND);
+
+  res = niffs_create(&fs, "test");
+  TEST_CHECK(res == NIFFS_OK);
+
+  fd = niffs_open(&fs, "test");
+  TEST_CHECK(fd >= 0);
+
+  return TEST_RES_OK;
+} TEST_END(func_open_basic)
+
+TEST(func_append_basic) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK(NIFFS_mount(&fs) == NIFFS_OK);
+
+  res = niffs_create(&fs, "test");
+  TEST_CHECK(res == NIFFS_OK);
+
+  int fd = niffs_open(&fs, "test");
+  TEST_CHECK(fd >= 0);
+
+  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) - 4;
+  u8_t *d = niffs_emul_create_data(0x12345678, len);
+  res = niffs_append(&fs, fd, d, len);
+  niffs_emul_dump_pix(&fs, 0);
+  niffs_emul_dump_pix(&fs, 1);
+  niffs_emul_destroy_data(d);
+  TEST_CHECK(res == NIFFS_OK);
+
+  return TEST_RES_OK;
+} TEST_END(func_append_basic)
+
 SUITE_END(niffs_func_tests)
