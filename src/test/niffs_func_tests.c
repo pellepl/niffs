@@ -15,6 +15,7 @@ void setup(test *t) {
 }
 
 void teardown(test *t) {
+  niffs_emul_destroy_all_data();
 }
 
 #ifdef NIFFS_DUMP
@@ -160,12 +161,12 @@ TEST(func_delete_basic) {
 TEST(func_move_basic) {
   int res = NIFFS_format(&fs);
   TEST_CHECK(NIFFS_mount(&fs) == NIFFS_OK);
-  TEST_CHECK(niffs_move_page(&fs, 0, 0) == ERR_NIFFS_MOVING_TO_SAME_PAGE);
-  TEST_CHECK(niffs_move_page(&fs, 0, 1) == ERR_NIFFS_MOVING_FREE_PAGE);
+  TEST_CHECK(niffs_move_page(&fs, 0, 0, 0, 0) == ERR_NIFFS_MOVING_TO_SAME_PAGE);
+  TEST_CHECK(niffs_move_page(&fs, 0, 1, 0, 0) == ERR_NIFFS_MOVING_FREE_PAGE);
   TEST_CHECK(niffs_create(&fs, "moo") == NIFFS_OK);
-  TEST_CHECK(niffs_move_page(&fs, 0, 1) == NIFFS_OK);
-  TEST_CHECK(niffs_move_page(&fs, 0, 1) == ERR_NIFFS_MOVING_DELETED_PAGE);
-  TEST_CHECK(niffs_move_page(&fs, 1, 0) == ERR_NIFFS_MOVING_TO_UNFREE_PAGE);
+  TEST_CHECK(niffs_move_page(&fs, 0, 1, 0, 0) == NIFFS_OK);
+  TEST_CHECK(niffs_move_page(&fs, 0, 1, 0, 0) == ERR_NIFFS_MOVING_DELETED_PAGE);
+  TEST_CHECK(niffs_move_page(&fs, 1, 0, 0, 0) == ERR_NIFFS_MOVING_TO_UNFREE_PAGE);
 
   return TEST_RES_OK;
 } TEST_END(func_move_basic)
@@ -196,12 +197,24 @@ TEST(func_append_basic) {
   int fd = niffs_open(&fs, "test");
   TEST_CHECK(fd >= 0);
 
-  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) - 4;
-  u8_t *d = niffs_emul_create_data(0x12345678, len);
+  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) - 4;
+  u8_t *d = niffs_emul_create_data("test", len);
   res = niffs_append(&fs, fd, d, len);
+  NIFFS_dump(&fs);
   niffs_emul_dump_pix(&fs, 0);
   niffs_emul_dump_pix(&fs, 1);
-  niffs_emul_destroy_data(d);
+  TEST_CHECK(res == NIFFS_OK);
+
+  printf("\n\n\n");
+
+  res = niffs_append(&fs, fd, d, len);
+  NIFFS_dump(&fs);
+  niffs_emul_dump_pix(&fs, 0);
+  niffs_emul_dump_pix(&fs, 1);
+  niffs_emul_dump_pix(&fs, 2);
+  niffs_emul_dump_pix(&fs, 3);
+  niffs_emul_dump_pix(&fs, 4);
+  niffs_emul_dump_pix(&fs, 5);
   TEST_CHECK(res == NIFFS_OK);
 
   return TEST_RES_OK;

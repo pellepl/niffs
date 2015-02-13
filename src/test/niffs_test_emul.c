@@ -13,9 +13,20 @@
 #include "niffs_test_emul.h"
 
 static u8_t _flash[EMUL_SECTORS * EMUL_SECTOR_SIZE];
-static u8_t buf[32];
+static u8_t buf[TEST_PARAM_PAGE_SIZE];
 static niffs_file_desc descs[EMUL_FILE_DESCS];
 niffs fs;
+
+typedef struct fdata_s{
+  char name[32];
+  void *data;
+  u32_t len;
+  struct fdata_s *next;
+} fdata;
+
+static fdata *dhead = 0;
+static fdata *dlast = 0;
+
 
 
 static int emul_hal_erase_f(u8_t *addr, u32_t len) {
@@ -51,13 +62,15 @@ static int emul_hal_write_f(u8_t *addr, u8_t *src, u32_t len) {
 }
 
 int niffs_emul_init(void) {
+  dhead = 0;
+  dlast = 0;
   return NIFFS_init(&fs, (u8_t *)&_flash[0], EMUL_SECTORS, EMUL_SECTOR_SIZE, TEST_PARAM_PAGE_SIZE,
       buf, sizeof(buf),
       descs, EMUL_FILE_DESCS,
       emul_hal_erase_f, emul_hal_write_f);
 }
 
-static void memdump(u8_t *addr, u32_t len) {
+void memdump(u8_t *addr, u32_t len) {
   u8_t *a = addr;
   while (a < addr + len) {
     int i;
@@ -93,19 +106,54 @@ void niffs_emul_dump_pix(niffs *fs, niffs_page_ix pix) {
   memdump(data, len);
 }
 
-u8_t *niffs_emul_create_data(u32_t seed, u32_t len) {
+u8_t *niffs_emul_create_data(char *name, u32_t len) {
+  fdata *e = malloc(sizeof(fdata));
+  NIFFS_ASSERT(e);
+  strncpy(e->name, name, sizeof(e->name));
+
+  u32_t seed = 0;
+  int i;
+  for(i = 0; i < strlen(name); i++) {
+    seed <<= 8;
+    seed |= name[i];
+  }
+
   u8_t *d = malloc(len);
   NIFFS_ASSERT(d);
+  e->len = len;
+  e->data = d;
+  e->next = 0;
+
   srand(seed);
-  int i;
   for (i = 0; i < len; i++){
     d[i] = rand();
   }
+
+  if (dhead == NULL) {
+    dhead = e;
+    dlast = e;
+  } else {
+    dlast->next = e;
+  }
+
   return d;
 }
 
-void niffs_emul_destroy_data(u8_t *data) {
-  free(data);
+void niffs_emul_destroy_all_data(void) {
+  while (dhead) {
+    free(dhead->data);
+    dhead = dhead->next;
+    free(dhead);
+  }
+  dlast = 0;
 }
 
-
+u8_t *niffs_emul_get_data(char *name) {
+  fdata *e = dhead;
+  while (e) {
+    if (strcmp(name, e->name) == 0) {
+      return e->data;
+    }
+  }
+  return 0;
+}

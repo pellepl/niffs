@@ -192,9 +192,11 @@ typedef struct {
 #ifdef NIFFS_TEST
 TESTATIC int niffs_find_free_id(niffs *fs, niffs_obj_id *id, char *conflict_name);
 TESTATIC int niffs_find_free_page(niffs *fs, niffs_page_ix *pix, u32_t excl_sector);
+TESTATIC int niffs_find_page(niffs *fs, niffs_page_ix *pix, niffs_obj_id oid, niffs_span_ix spix);
 TESTATIC int niffs_erase_sector(niffs *fs, u32_t sector_ix);
 TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix);
-TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix);
+TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix, u8_t *data, u32_t len);
+TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, u8_t *data, u32_t len);
 TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr);
 TESTATIC int niffs_create(niffs *fs, char *name);
 TESTATIC int niffs_open(niffs *fs, char *name);
