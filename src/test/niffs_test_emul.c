@@ -148,10 +148,11 @@ void niffs_emul_destroy_all_data(void) {
   dlast = 0;
 }
 
-u8_t *niffs_emul_get_data(char *name) {
+u8_t *niffs_emul_get_data(char *name, u32_t *len) {
   fdata *e = dhead;
   while (e) {
     if (strcmp(name, e->name) == 0) {
+      if (len) *len = e->len;
       return e->data;
     }
   }

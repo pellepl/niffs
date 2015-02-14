@@ -187,7 +187,7 @@ TEST(func_open_basic) {
   return TEST_RES_OK;
 } TEST_END(func_open_basic)
 
-TEST(func_append_basic) {
+TEST(func_append_read_basic) {
   int res = NIFFS_format(&fs);
   TEST_CHECK(NIFFS_mount(&fs) == NIFFS_OK);
 
@@ -197,27 +197,31 @@ TEST(func_append_basic) {
   int fd = niffs_open(&fs, "test");
   TEST_CHECK(fd >= 0);
 
-  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) - 4;
+  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0);
   u8_t *d = niffs_emul_create_data("test", len);
   res = niffs_append(&fs, fd, d, len);
-  NIFFS_dump(&fs);
-  niffs_emul_dump_pix(&fs, 0);
-  niffs_emul_dump_pix(&fs, 1);
   TEST_CHECK(res == NIFFS_OK);
 
-  printf("\n\n\n");
+  fd = niffs_open(&fs, "test");
+  TEST_CHECK(fd >= 0);
 
-  res = niffs_append(&fs, fd, d, len);
-  NIFFS_dump(&fs);
-  niffs_emul_dump_pix(&fs, 0);
-  niffs_emul_dump_pix(&fs, 1);
-  niffs_emul_dump_pix(&fs, 2);
-  niffs_emul_dump_pix(&fs, 3);
-  niffs_emul_dump_pix(&fs, 4);
-  niffs_emul_dump_pix(&fs, 5);
-  TEST_CHECK(res == NIFFS_OK);
+  u8_t *rptr;
+  u32_t rlen;
+  u32_t ix = 0;
+
+  while (ix < len) {
+    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    TEST_CHECK(res > 0);
+    res = memcmp(rptr, &d[ix], rlen);
+    TEST_CHECK(res == 0);
+    ix += rlen;
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
+    TEST_CHECK(res == NIFFS_OK);
+  }
+
+  TEST_CHECK(niffs_close(&fs, fd) == NIFFS_OK);
 
   return TEST_RES_OK;
-} TEST_END(func_append_basic)
+} TEST_END(func_append_read_basic)
 
 SUITE_END(niffs_func_tests)

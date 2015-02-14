@@ -142,6 +142,9 @@
   sizeof(niffs_sector_hdr) + \
   _NIFFS_PIX_IN_SECTOR(_fs, _pix) * fs->page_size \
   )
+#define _NIFFS_ADDR_2_PIX(_fs, _addr) (\
+  ((u8_t *)(_addr) - (_fs)->phys_addr) / (_fs)->page_size \
+  )
 
 #define _NIFFS_SPIX_2_PDATA_LEN(_fs, _spix) \
   ((_fs)->page_size - sizeof(niffs_page_hdr) - ((_spix) == 0 ? sizeof(niffs_object_hdr) : 0))
@@ -151,7 +154,7 @@
       (1 + (((_offs) - _NIFFS_SPIX_2_PDATA_LEN(_fs, 0)) / _NIFFS_SPIX_2_PDATA_LEN(_fs, 1))) \
 )
 
-#define _NIFFS_OFFS_2_SPIX_OFFS(_fs, _offs) ( \
+#define _NIFFS_OFFS_2_PDATA_OFFS(_fs, _offs) ( \
   (_offs) < _NIFFS_SPIX_2_PDATA_LEN(_fs, 0) ? (_offs) : \
       (((_offs) - _NIFFS_SPIX_2_PDATA_LEN(_fs, 0)) % _NIFFS_SPIX_2_PDATA_LEN(_fs, 1)) \
 )
@@ -192,7 +195,7 @@ typedef struct {
 #ifdef NIFFS_TEST
 TESTATIC int niffs_find_free_id(niffs *fs, niffs_obj_id *id, char *conflict_name);
 TESTATIC int niffs_find_free_page(niffs *fs, niffs_page_ix *pix, u32_t excl_sector);
-TESTATIC int niffs_find_page(niffs *fs, niffs_page_ix *pix, niffs_obj_id oid, niffs_span_ix spix);
+TESTATIC int niffs_find_page(niffs *fs, niffs_page_ix *pix, niffs_obj_id oid, niffs_span_ix spix, niffs_page_ix start_pix);
 TESTATIC int niffs_erase_sector(niffs *fs, u32_t sector_ix);
 TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix);
 TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix, u8_t *data, u32_t len);
@@ -200,6 +203,9 @@ TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr
 TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr);
 TESTATIC int niffs_create(niffs *fs, char *name);
 TESTATIC int niffs_open(niffs *fs, char *name);
+TESTATIC int niffs_close(niffs *fs, int fd_ix);
+TESTATIC int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail);
+TESTATIC int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset);
 TESTATIC int niffs_append(niffs *fs, int fd_ix, u8_t *buf, u32_t len);
 #endif
 

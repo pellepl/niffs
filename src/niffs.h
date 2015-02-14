@@ -37,6 +37,7 @@
 #define ERR_NIFFS_FILEDESC_BAD              -20
 #define ERR_NIFFS_FATAL_INCOHERENT_ID       -21
 #define ERR_NIFFS_PAGE_NOT_FOUND            -22
+#define ERR_NIFFS_END_OF_FILE               -23
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
 typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);
@@ -44,10 +45,8 @@ typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);
 typedef struct {
   niffs_obj_id obj_id;
   niffs_page_ix obj_pix;
-  u32_t len;
   u32_t offs;
   niffs_page_ix cur_pix;
-  niffs_page_ix last_pix;
 } niffs_file_desc;
 
 typedef struct {
