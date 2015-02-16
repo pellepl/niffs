@@ -38,6 +38,8 @@
 #define ERR_NIFFS_FATAL_INCOHERENT_ID       -21
 #define ERR_NIFFS_PAGE_NOT_FOUND            -22
 #define ERR_NIFFS_END_OF_FILE               -23
+#define ERR_NIFFS_MODIFY_BEYOND_FILE        -24
+#define ERR_NIFFS_TRUNCATE_BEYOND_FILE      -25
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
 typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);

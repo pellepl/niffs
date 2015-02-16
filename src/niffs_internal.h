@@ -201,12 +201,15 @@ TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix);
 TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix, u8_t *data, u32_t len);
 TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, u8_t *data, u32_t len);
 TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr);
+
 TESTATIC int niffs_create(niffs *fs, char *name);
 TESTATIC int niffs_open(niffs *fs, char *name);
 TESTATIC int niffs_close(niffs *fs, int fd_ix);
 TESTATIC int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail);
 TESTATIC int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset);
-TESTATIC int niffs_append(niffs *fs, int fd_ix, u8_t *buf, u32_t len);
+TESTATIC int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len);
+TESTATIC int niffs_modify(niffs *fs, int fd_ix, u32_t offs, u8_t *src, u32_t len);
+TESTATIC int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len);
 #endif
 
 

@@ -77,6 +77,10 @@ typedef struct test_res_s {
   printf("  TEST FAIL %s:%i\n", __FILE__, __LINE__); \
   goto __fail_stop; \
 }
+#define TEST_CHECK_EQ(x, y) if ((x) != (y)) { \
+  printf("  TEST FAIL %s:%i, %i != %i\n", __FILE__, __LINE__, (x), (y)); \
+  goto __fail_stop; \
+}
 #define TEST_ASSERT(x) if (!(x)) { \
   printf("  TEST ASSERT %s:%i\n", __FILE__, __LINE__); \
   goto __fail_assert; \

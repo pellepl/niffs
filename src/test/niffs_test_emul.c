@@ -42,15 +42,24 @@ static int emul_hal_write_f(u8_t *addr, u8_t *src, u32_t len) {
   if (addr < &_flash[0]) return ERR_NIFFS_TEST_BAD_ADDR;
   if (addr+len >= &_flash[0] + EMUL_SECTORS * EMUL_SECTOR_SIZE) return ERR_NIFFS_TEST_BAD_ADDR;
   if (len == 0) return ERR_NIFFS_TEST_BAD_ADDR;
+//  if (len % NIFFS_WORD_ALIGN != 0) {
+//    printf("unaligned write length %08x\n", len);
+//    return ERR_NIFFS_TEST_UNLIGNED_WRITE_LEN;
+//  }
 #ifdef TEST_CHECK_UNALIGNED_ACCESS
-  if (len % NIFFS_WORD_ALIGN != 0) return ERR_NIFFS_TEST_UNLIGNED_WRITE_LEN;
-  if ((uintptr_t)addr % NIFFS_WORD_ALIGN != 0) return ERR_NIFFS_TEST_UNLIGNED_WRITE_ADDR;
+  if ((uintptr_t)addr % NIFFS_WORD_ALIGN != 0) {
+    printf("unaligned write address %p\n", addr);
+    return ERR_NIFFS_TEST_UNLIGNED_WRITE_ADDR;
+  }
 #endif
   int i;
   for (i = 0;  i < len; i++) {
     u8_t b = *src;
 #ifdef TEST_CHECK_WRITE_ON_NONERASED_DATA_OTHER_THAN_ZERO
-    if (b != 0 && *addr != 0xff) return ERR_NIFFS_TEST_WRITE_TO_NONERASED_DATA;
+    if (b != 0 && *addr != 0xff) {
+      printf("writing illegaly to address %p: %02x @ %02x\n", addr, b, *addr);
+      return ERR_NIFFS_TEST_WRITE_TO_NONERASED_DATA;
+    }
 #endif
     //printf("write %02x to %p [%02x] => ", b, addr, *addr);
     *addr &= (b);
