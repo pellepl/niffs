@@ -44,6 +44,27 @@
 #define NIFFS_WORD_ALIGN        (2)
 #endif
 
+#ifndef NIFFS_GC_SCORE_ERASE_CNT_DIFF
+#define NIFFS_GC_SCORE_ERASE_CNT_DIFF (100)
+#endif
+#ifndef NIFFS_GC_SCORE_FREE
+#define NIFFS_GC_SCORE_FREE (-4)
+#endif
+#ifndef NIFFS_GC_SCORE_DELE
+#define NIFFS_GC_SCORE_DELE (2)
+#endif
+#ifndef NIFFS_GC_SCORE_BUSY
+#define NIFFS_GC_SCORE_BUSY (-2)
+#endif
+
+#ifndef NIFFS_GC_SCORE
+#define NIFFS_GC_SCORE(era_cnt_diff, free, dele, busy) \
+  ((era_cnt_diff) * NIFFS_GC_SCORE_ERASE_CNT_DIFF) + \
+  ((free) * NIFFS_GC_SCORE_FREE) + \
+  ((dele) * NIFFS_GC_SCORE_DELE) + \
+  ((busy) * NIFFS_GC_SCORE_BUSY)
+
+#endif
 
 typedef u16_t niffs_magic; // must be sized on alignment
 typedef u16_t niffs_erase_cnt; // must be sized on alignment

@@ -21,7 +21,7 @@ void teardown(test *t) {
 #ifdef NIFFS_DUMP
 TEST(func_dump) {
   int res = NIFFS_format(&fs);
-  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(res, NIFFS_OK);
   NIFFS_dump(&fs);
   return TEST_RES_OK;
 } TEST_END(func_dump)
@@ -161,12 +161,12 @@ TEST(func_delete) {
 TEST(func_move) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
-  TEST_CHECK_EQ(niffs_move_page(&fs, 0, 0, 0, 0), ERR_NIFFS_MOVING_TO_SAME_PAGE);
-  TEST_CHECK_EQ(niffs_move_page(&fs, 0, 1, 0, 0), ERR_NIFFS_MOVING_FREE_PAGE);
+  TEST_CHECK_EQ(niffs_move_page(&fs, 0, 0, 0, 0, NIFFS_FLAG_MOVE_KEEP), ERR_NIFFS_MOVING_TO_SAME_PAGE);
+  TEST_CHECK_EQ(niffs_move_page(&fs, 0, 1, 0, 0, NIFFS_FLAG_MOVE_KEEP), ERR_NIFFS_MOVING_FREE_PAGE);
   TEST_CHECK_EQ(niffs_create(&fs, "moo"), NIFFS_OK);
-  TEST_CHECK_EQ(niffs_move_page(&fs, 0, 1, 0, 0), NIFFS_OK);
-  TEST_CHECK_EQ(niffs_move_page(&fs, 0, 1, 0, 0), ERR_NIFFS_MOVING_DELETED_PAGE);
-  TEST_CHECK_EQ(niffs_move_page(&fs, 1, 0, 0, 0), ERR_NIFFS_MOVING_TO_UNFREE_PAGE);
+  TEST_CHECK_EQ(niffs_move_page(&fs, 0, 1, 0, 0, NIFFS_FLAG_MOVE_KEEP), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_move_page(&fs, 0, 1, 0, 0, NIFFS_FLAG_MOVE_KEEP), ERR_NIFFS_MOVING_DELETED_PAGE);
+  TEST_CHECK_EQ(niffs_move_page(&fs, 1, 0, 0, 0, NIFFS_FLAG_MOVE_KEEP), ERR_NIFFS_MOVING_TO_UNFREE_PAGE);
 
   return TEST_RES_OK;
 } TEST_END(func_move)
@@ -714,6 +714,7 @@ TEST(func_truncate) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
   TEST_CHECK_EQ(ix, len);
+  TEST_CHECK_EQ(fs.dele_pages, 0);
 
   // truncate half a page
 
@@ -739,8 +740,7 @@ TEST(func_truncate) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
   TEST_CHECK_EQ(ix, len);
-
-  NIFFS_dump(&fs);
+  TEST_CHECK_EQ(fs.dele_pages, 1); // rewritten obj hdr
 
   // truncate to two pages
 
@@ -766,8 +766,7 @@ TEST(func_truncate) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
   TEST_CHECK_EQ(ix, len);
-
-  NIFFS_dump(&fs);
+  TEST_CHECK_EQ(fs.dele_pages, 1 + 2); // rewritten obj hdr + deleted page
 
   // truncate, rm
 
@@ -779,11 +778,90 @@ TEST(func_truncate) {
 
   fd = niffs_open(&fs, "trunc");
   TEST_CHECK_EQ(fd, ERR_NIFFS_FILE_NOT_FOUND);
-
-
-  NIFFS_dump(&fs);
+  TEST_CHECK_EQ(fs.dele_pages, 1 + 2 + 2); // rewritten obj hdr + deleted page
 
   return TEST_RES_OK;
 } TEST_END(func_truncate)
+
+TEST(func_gc) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+  int i;
+  for (i = 0; i < (fs.sectors-1) * fs.pages_per_sector; i++) {
+    char fname[16];
+    sprintf(fname, "t%i", i);
+    res = niffs_create(&fs, fname);
+    TEST_CHECK_EQ(res,  NIFFS_OK);
+    u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0);
+    u8_t *data = niffs_emul_create_data(fname, len);
+    int fd = niffs_open(&fs, fname);
+    TEST_CHECK(fd >= 0);
+    res = niffs_append(&fs, fd, data, len);
+    TEST_CHECK_EQ(res,  NIFFS_OK);
+    TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+  }
+
+  res = niffs_create(&fs, "overflow");
+  TEST_CHECK_EQ(res, ERR_NIFFS_FULL);
+
+  TEST_CHECK_EQ(fs.free_pages, fs.pages_per_sector);
+  TEST_CHECK_EQ(fs.dele_pages, 0);
+
+  int fd = niffs_open(&fs, "t0");
+  TEST_CHECK(fd >= 0);
+  TEST_CHECK_EQ(niffs_truncate(&fs, fd, 0), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  res = niffs_create(&fs, "overflow");
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  TEST_CHECK_EQ(fs.free_pages, fs.pages_per_sector);
+  TEST_CHECK_EQ(fs.dele_pages, 0);
+
+  fd = niffs_open(&fs, "t2");
+  TEST_CHECK(fd >= 0);
+  TEST_CHECK_EQ(niffs_truncate(&fs, fd, 0), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+  fd = niffs_open(&fs, "t3");
+  TEST_CHECK(fd >= 0);
+  TEST_CHECK_EQ(niffs_truncate(&fs, fd, 0), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+  fd = niffs_open(&fs, "t4");
+  TEST_CHECK(fd >= 0);
+  TEST_CHECK_EQ(niffs_truncate(&fs, fd, 0), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1)*3 - 5;
+  u8_t *data = niffs_emul_create_data("overflow", len);
+  fd = niffs_open(&fs, "overflow");
+  TEST_CHECK(fd >= 0);
+  res = niffs_append(&fs, fd, data, len);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  TEST_CHECK_EQ(fs.free_pages, fs.pages_per_sector);
+  TEST_CHECK_EQ(fs.dele_pages, 0);
+
+  fd = niffs_open(&fs, "overflow");
+  TEST_CHECK(fd >= 0);
+  u32_t ix = 0;
+  u8_t *rptr;
+  u32_t rlen;
+  while (ix < len) {
+    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    TEST_CHECK(res > 0);
+    res = memcmp(rptr, &data[ix], rlen);
+    TEST_CHECK_EQ(res,  0);
+    ix += rlen;
+    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    TEST_CHECK_EQ(res,  NIFFS_OK);
+  }
+
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+  TEST_CHECK_EQ(ix, len);
+
+  return TEST_RES_OK;
+} TEST_END(func_gc)
 
 SUITE_END(niffs_func_tests)

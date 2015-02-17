@@ -16,30 +16,34 @@
 
 #define NIFFS_OK                            0
 #define ERR_NIFFS_BAD_CONF                  -1
-#define ERR_NIFFS_BAD_SECTOR                -2
-#define ERR_NIFFS_DELETING_FREE_PAGE        -3
-#define ERR_NIFFS_DELETING_DELETED_PAGE     -4
-#define ERR_NIFFS_MOVING_FREE_PAGE          -5
-#define ERR_NIFFS_MOVING_DELETED_PAGE       -6
-#define ERR_NIFFS_MOVING_TO_UNFREE_PAGE     -7
-#define ERR_NIFFS_MOVING_TO_SAME_PAGE       -8
-#define ERR_NIFFS_NO_FREE_PAGE              -9
-#define ERR_NIFFS_SECTOR_UNFORMATTABLE      -10
-#define ERR_NIFFS_NULL_PTR                  -11
-#define ERR_NIFFS_NO_FREE_ID                -12
-#define ERR_NIFFS_WR_PHDR_UNFREE_PAGE       -13
-#define ERR_NIFFS_WR_PHDR_BAD_ID            -14
-#define ERR_NIFFS_NAME_CONFLICT             -15
-#define ERR_NIFFS_FULL                      -16
-#define ERR_NIFFS_OUT_OF_FILEDESCS          -17
-#define ERR_NIFFS_FILE_NOT_FOUND            -18
-#define ERR_NIFFS_FILEDESC_CLOSED           -19
-#define ERR_NIFFS_FILEDESC_BAD              -20
-#define ERR_NIFFS_FATAL_INCOHERENT_ID       -21
-#define ERR_NIFFS_PAGE_NOT_FOUND            -22
-#define ERR_NIFFS_END_OF_FILE               -23
-#define ERR_NIFFS_MODIFY_BEYOND_FILE        -24
-#define ERR_NIFFS_TRUNCATE_BEYOND_FILE      -25
+#define ERR_NIFFS_NOT_A_FILESYSTEM          -2
+#define ERR_NIFFS_BAD_SECTOR                -3
+#define ERR_NIFFS_DELETING_FREE_PAGE        -4
+#define ERR_NIFFS_DELETING_DELETED_PAGE     -5
+#define ERR_NIFFS_MOVING_FREE_PAGE          -6
+#define ERR_NIFFS_MOVING_DELETED_PAGE       -7
+#define ERR_NIFFS_MOVING_TO_UNFREE_PAGE     -8
+#define ERR_NIFFS_MOVING_TO_SAME_PAGE       -9
+#define ERR_NIFFS_NO_FREE_PAGE              -10
+#define ERR_NIFFS_SECTOR_UNFORMATTABLE      -11
+#define ERR_NIFFS_NULL_PTR                  -12
+#define ERR_NIFFS_NO_FREE_ID                -13
+#define ERR_NIFFS_WR_PHDR_UNFREE_PAGE       -14
+#define ERR_NIFFS_WR_PHDR_BAD_ID            -15
+#define ERR_NIFFS_NAME_CONFLICT             -16
+#define ERR_NIFFS_FULL                      -17
+#define ERR_NIFFS_OUT_OF_FILEDESCS          -18
+#define ERR_NIFFS_FILE_NOT_FOUND            -19
+#define ERR_NIFFS_FILEDESC_CLOSED           -20
+#define ERR_NIFFS_FILEDESC_BAD              -21
+#define ERR_NIFFS_INCOHERENT_ID             -22
+#define ERR_NIFFS_PAGE_NOT_FOUND            -23
+#define ERR_NIFFS_END_OF_FILE               -24
+#define ERR_NIFFS_MODIFY_BEYOND_FILE        -25
+#define ERR_NIFFS_TRUNCATE_BEYOND_FILE      -26
+#define ERR_NIFFS_NO_GC_CANDIDATE           -27
+#define ERR_NIFFS_PAGE_DELETED              -28
+#define ERR_NIFFS_PAGE_FREE                 -29
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
 typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);
@@ -72,7 +76,7 @@ typedef struct {
   u32_t dele_pages;
   niffs_file_desc *descs;
   u32_t descs_len;
-  niffs_page_ix *watch_pix;
+  u32_t max_era;
 
 } niffs;
 

@@ -89,6 +89,7 @@
  *   if both FREE & WRIT => aborted in midst of moving, remove page
  *   if MOVI and no equal page with same id and same or next cycle, copy and delete original
  *   if CLEA, aborted in midst of writing file - delete
+ *   if MOVI object header => modified during trunc or append, check length and all spix with same id
  *
  *   remove orphans - check for WRIT && MOVI with ids and spix > 0 having no corresponding page with spix == 0, remove all
  *   file length - remove all pages where spix is beyond file size, if length == 0, also remove obj hdr
@@ -110,6 +111,7 @@
 #define _NIFFS_FLAG_CLEAN       ((niffs_flag)-1)
 #define _NIFFS_FLAG_WRITTEN     ((niffs_flag)1)
 #define _NIFFS_FLAG_MOVING      ((niffs_flag)0)
+#define NIFFS_FLAG_MOVE_KEEP    ((niffs_flag)0xaa)
 
 #define _NIFFS_SECT_MAGIC(_fs)  (niffs_magic)(0xfee1c01d ^ (_fs)->page_size)
 
@@ -192,13 +194,12 @@ typedef struct {
   u8_t name[NIFFS_NAME_LEN];
 } niffs_object_hdr;
 
-#ifdef NIFFS_TEST
 TESTATIC int niffs_find_free_id(niffs *fs, niffs_obj_id *id, char *conflict_name);
 TESTATIC int niffs_find_free_page(niffs *fs, niffs_page_ix *pix, u32_t excl_sector);
 TESTATIC int niffs_find_page(niffs *fs, niffs_page_ix *pix, niffs_obj_id oid, niffs_span_ix spix, niffs_page_ix start_pix);
 TESTATIC int niffs_erase_sector(niffs *fs, u32_t sector_ix);
 TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix);
-TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix, u8_t *data, u32_t len);
+TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix, u8_t *data, u32_t len, niffs_flag force_flag);
 TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, u8_t *data, u32_t len);
 TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr);
 
@@ -210,7 +211,6 @@ TESTATIC int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset);
 TESTATIC int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len);
 TESTATIC int niffs_modify(niffs *fs, int fd_ix, u32_t offs, u8_t *src, u32_t len);
 TESTATIC int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len);
-#endif
-
+TESTATIC int niffs_gc(niffs *fs, u32_t *freed_pages);
 
 #endif /* NIFFS_INTERNAL_H_ */
