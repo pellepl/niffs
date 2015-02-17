@@ -501,6 +501,10 @@ TESTATIC int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
     phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->cur_pix);
   }
 
+  if (_NIFFS_IS_DELE(phdr)) return ERR_NIFFS_PAGE_DELETED;
+  if (_NIFFS_IS_FREE(phdr)) return ERR_NIFFS_PAGE_FREE;
+  if (phdr->id.obj_id != fd->obj_id) return ERR_NIFFS_INCOHERENT_ID;
+
   *data = (u8_t *)phdr + _NIFFS_OFFS_2_PDATA_OFFS(fs, fd->offs) +
       (phdr->id.spix == 0 ? sizeof(niffs_object_hdr) : sizeof(niffs_page_hdr));
   *avail = avail_data;
