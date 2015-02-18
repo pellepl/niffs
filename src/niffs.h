@@ -44,6 +44,8 @@
 #define ERR_NIFFS_NO_GC_CANDIDATE           -27
 #define ERR_NIFFS_PAGE_DELETED              -28
 #define ERR_NIFFS_PAGE_FREE                 -29
+#define ERR_NIFFS_MOUNTED                   -30
+#define ERR_NIFFS_NOT_MOUNTED               -31
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
 typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);

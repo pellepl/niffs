@@ -22,6 +22,7 @@ void teardown(test *t) {
 TEST(func_dump) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
   NIFFS_dump(&fs);
   return TEST_RES_OK;
 } TEST_END(func_dump)
@@ -71,7 +72,6 @@ TEST(func_write_phdr) {
 
   niffs_page_hdr phdr;
   phdr.flag = _NIFFS_FLAG_WRITTEN;
-  phdr.id.cycle_ix = 0;
   phdr.id.spix = 0;
 
   niffs_page_ix pix = 0;
@@ -863,5 +863,198 @@ TEST(func_gc) {
 
   return TEST_RES_OK;
 } TEST_END(func_gc)
+
+
+
+TEST(func_gc_big_hog) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  // create one hog file two sectors big
+  res = niffs_create(&fs, "bighog");
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * (2*fs.pages_per_sector-1);
+  u8_t *data = niffs_emul_create_data("bighog", len);
+  int fd = niffs_open(&fs, "bighog");
+  TEST_CHECK(fd >= 0);
+  res = niffs_append(&fs, fd, data, len);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  // now create loads of short lived small files, trigger gc some times
+  int needed_gc_runs_to_move_stalled_sector =
+      fs.sectors *
+      ((MAX(NIFFS_GC_SCORE_BUSY, -NIFFS_GC_SCORE_BUSY) * 100) / NIFFS_GC_SCORE_ERASE_CNT_DIFF);
+  TEST_ASSERT(needed_gc_runs_to_move_stalled_sector > 0);
+
+  while (needed_gc_runs_to_move_stalled_sector--) {
+    int i;
+    for (i = 0; i < (fs.sectors-2) * fs.pages_per_sector; i++) {
+      char fname[16];
+      sprintf(fname, "t%i_%i", i, needed_gc_runs_to_move_stalled_sector);
+      res = niffs_create(&fs, fname);
+      TEST_CHECK_EQ(res,  NIFFS_OK);
+      int fd = niffs_open(&fs, fname);
+      TEST_CHECK(fd >= 0);
+      res = niffs_truncate(&fs, fd, 0);
+      TEST_CHECK_EQ(res, NIFFS_OK);
+      TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+    }
+  }
+
+  // make sure the big hog has been moved
+  u32_t era_min, era_max;
+  niffs_emul_get_sector_erase_count_info(&fs, &era_min, &era_max);
+  TEST_CHECK(era_max > 1);
+  TEST_CHECK(era_min > 1);
+  TEST_CHECK(((era_max - era_min)*100)/era_max < 50);
+  NIFFS_DBG("ERA INF min:%i max:%i span:%i\n", era_min, era_max, ((era_max - era_min)*100)/era_max);
+
+  return TEST_RES_OK;
+} TEST_END(func_gc_big_hog)
+
+TEST(func_check_aborted_delete) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  // create one big file two sectors big
+  res = niffs_create(&fs, "undel");
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * (2*fs.pages_per_sector-1);
+  u8_t *data = niffs_emul_create_data("undel", len);
+  int fd = niffs_open(&fs, "undel");
+  TEST_CHECK(fd >= 0);
+  res = niffs_append(&fs, fd, data, len);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+
+  u32_t written_pre = fs.sectors * fs.pages_per_sector - fs.free_pages - fs.dele_pages;
+
+  // create one small file two pages big
+  res = niffs_create(&fs, "noorphan");
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1);
+  data = niffs_emul_create_data("noorphan", len);
+  fd = niffs_open(&fs, "noorphan");
+  TEST_CHECK(fd >= 0);
+  res = niffs_append(&fs, fd, data, len);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  // truncate header size for file to 0
+  fd = niffs_open(&fs, "undel");
+  TEST_CHECK(fd >= 0);
+  niffs_emul_set_write_byte_limit(sizeof(u32_t)); // length in obj header
+  res = niffs_truncate(&fs, fd, 0);
+  TEST_CHECK_EQ(res, ERR_NIFFS_TEST_ABORTED_WRITE);
+
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
+
+  TEST_CHECK_EQ(niffs_chk(&fs), NIFFS_OK);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+  TEST_CHECK_EQ(written_pre, fs.dele_pages);
+  TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
+
+  return TEST_RES_OK;
+} TEST_END(func_check_aborted_delete)
+
+TEST(func_check_orphans) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  // create one big file two sectors big
+  res = niffs_create(&fs, "orphan");
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * (2*fs.pages_per_sector-1);
+  u8_t *data = niffs_emul_create_data("orphan", len);
+  int fd = niffs_open(&fs, "orphan");
+  TEST_CHECK(fd >= 0);
+  res = niffs_append(&fs, fd, data, len);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  u32_t written_pre = fs.sectors * fs.pages_per_sector - fs.free_pages - fs.dele_pages;
+
+  // create one small file two pages big
+  res = niffs_create(&fs, "noorphan");
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1);
+  data = niffs_emul_create_data("noorphan", len);
+  fd = niffs_open(&fs, "noorphan");
+  TEST_CHECK(fd >= 0);
+  res = niffs_append(&fs, fd, data, len);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  // delete obj header for orphan file
+  TEST_CHECK_EQ(niffs_delete_page(&fs, 0), NIFFS_OK);
+
+  TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
+
+  TEST_CHECK_EQ(niffs_chk(&fs), NIFFS_OK);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+  TEST_CHECK_EQ(written_pre, fs.dele_pages);
+  TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
+
+  return TEST_RES_OK;
+} TEST_END(func_check_orphans)
+
+TEST(func_check_aborted_append) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  // create file
+  res = niffs_create(&fs, "abortapp");
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  u32_t orig_len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0);
+  u8_t *orig_data = niffs_emul_create_data("abortapp", orig_len);
+  int fd = niffs_open(&fs, "abortapp");
+  TEST_CHECK(fd >= 0);
+  res = niffs_append(&fs, fd, orig_data, orig_len);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  // append to file, abort
+  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * fs.pages_per_sector;
+  u8_t *data = niffs_emul_create_data("abortapp_more", len);
+  fd = niffs_open(&fs, "abortapp");
+  TEST_CHECK(fd >= 0);
+  niffs_emul_set_write_byte_limit(len-4);
+  res = niffs_append(&fs, fd, data, len);
+  TEST_CHECK_EQ(res, ERR_NIFFS_TEST_ABORTED_WRITE);
+
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  TEST_CHECK_EQ(res, ERR_NIFFS_TEST_ABORTED_WRITE);
+  TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_chk(&fs), NIFFS_OK);
+
+  u8_t *rptr;
+  u32_t rlen;
+  u32_t ix = 0;
+
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+  fd = niffs_open(&fs, "abortapp");
+  TEST_CHECK(fd >= 0);
+  TEST_CHECK_EQ(niffs_seek(&fs, fd, NIFFS_SEEK_SET, 0), NIFFS_OK);
+  while (ix < orig_len) {
+    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    TEST_CHECK(res > 0);
+    res = memcmp(rptr, &orig_data[ix], rlen);
+    TEST_CHECK_EQ(res,  0);
+    ix += rlen;
+    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    TEST_CHECK_EQ(res,  NIFFS_OK);
+  }
+
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+  TEST_CHECK_EQ(ix, orig_len);
+
+
+  return TEST_RES_OK;
+} TEST_END(func_check_aborted_append)
+
 
 SUITE_END(niffs_func_tests)

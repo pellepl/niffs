@@ -57,6 +57,8 @@
 #define NIFFS_GC_SCORE_BUSY (-2)
 #endif
 
+#define NIFFS_EXPERIMENTAL_GC_DISTRIBUTED_SPARE_SECTOR
+
 #ifndef NIFFS_GC_SCORE
 #define NIFFS_GC_SCORE(era_cnt_diff, free, dele, busy) \
   ((era_cnt_diff) * NIFFS_GC_SCORE_ERASE_CNT_DIFF) + \

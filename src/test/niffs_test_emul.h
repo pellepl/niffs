@@ -19,5 +19,7 @@ void niffs_emul_dump_pix(niffs *fs, niffs_page_ix pix);
 u8_t *niffs_emul_create_data(char *name, u32_t len);
 void niffs_emul_destroy_all_data(void);
 u8_t *niffs_emul_get_data(char *name, u32_t *len);
+void niffs_emul_get_sector_erase_count_info(niffs *fs, u32_t *s_era_min, u32_t *s_era_max);
+void niffs_emul_set_write_byte_limit(u32_t limit);
 
 #endif /* NIFFS_TEST_EMUL_H_ */

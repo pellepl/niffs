@@ -26,8 +26,7 @@ typedef struct fdata_s{
 
 static fdata *dhead = 0;
 static fdata *dlast = 0;
-
-
+static u32_t valid_byte_writes = 0;
 
 static int emul_hal_erase_f(u8_t *addr, u32_t len) {
   if (addr < &_flash[0]) return ERR_NIFFS_TEST_BAD_ADDR;
@@ -66,6 +65,10 @@ static int emul_hal_write_f(u8_t *addr, u8_t *src, u32_t len) {
     //printf("%02x\n", *addr);
     addr++;
     src++;
+    if (valid_byte_writes) {
+      --valid_byte_writes;
+      if (valid_byte_writes == 0) return ERR_NIFFS_TEST_ABORTED_WRITE;
+    }
   }
   return NIFFS_OK;
 }
@@ -73,10 +76,17 @@ static int emul_hal_write_f(u8_t *addr, u8_t *src, u32_t len) {
 int niffs_emul_init(void) {
   dhead = 0;
   dlast = 0;
+  memset(_flash, 0xff, sizeof(_flash));
   return NIFFS_init(&fs, (u8_t *)&_flash[0], EMUL_SECTORS, EMUL_SECTOR_SIZE, TEST_PARAM_PAGE_SIZE,
       buf, sizeof(buf),
       descs, EMUL_FILE_DESCS,
       emul_hal_erase_f, emul_hal_write_f);
+  valid_byte_writes = 0;
+  return 0;
+}
+
+void niffs_emul_set_write_byte_limit(u32_t limit) {
+  valid_byte_writes = limit;
 }
 
 void memdump(u8_t *addr, u32_t len) {
@@ -101,8 +111,8 @@ void memdump(u8_t *addr, u32_t len) {
 void niffs_emul_dump_pix(niffs *fs, niffs_page_ix pix) {
   niffs_page_hdr *phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, pix);
   printf("PIX:%04i @ %p\n", pix, phdr);
-  printf("  flag:%04x  id:%04x  oid:%02x  spix:%02x  cyc:%i\n",
-      phdr->flag, phdr->id.raw, phdr->id.obj_id, phdr->id.spix, phdr->id.cycle_ix);
+  printf("  flag:%04x  id:%04x  oid:%02x  spix:%02x\n",
+      phdr->flag, phdr->id.raw, phdr->id.obj_id, phdr->id.spix);
   u8_t *data = (u8_t *)phdr + sizeof(niffs_page_hdr);
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(fs, 1);
   if (!_NIFFS_IS_FREE(phdr) && !_NIFFS_IS_DELE(phdr) &&_NIFFS_IS_ID_VALID(phdr) && phdr->id.spix == 0) {
@@ -166,4 +176,17 @@ u8_t *niffs_emul_get_data(char *name, u32_t *len) {
     }
   }
   return 0;
+}
+
+void niffs_emul_get_sector_erase_count_info(niffs *fs, u32_t *s_era_min, u32_t *s_era_max) {
+  u32_t s;
+  *s_era_min = 0xffffffff;
+  *s_era_max = 0;
+  for (s = 0; s < fs->sectors; s++) {
+    niffs_sector_hdr *shdr = (niffs_sector_hdr *)_NIFFS_SECTOR_2_ADDR(fs, s);
+    if (shdr->era_cnt != (niffs_erase_cnt)-1) {
+      *s_era_min = MIN(*s_era_min, shdr->era_cnt);
+      *s_era_max = MAX(*s_era_max, shdr->era_cnt);
+    }
+  }
 }

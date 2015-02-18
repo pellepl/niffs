@@ -8,7 +8,6 @@
  *  | magic : era_cnt   | id   :  flag   | .... | id   :  flag   | .... | ...
  *  |                   | \ obj_id              | \ obj_id              |
  *  |                   | \ spix                | \ spix                |
- *  |                   | \ cyc                 | \ cyc                 |
  *
  * Page status:
  *   FREE  niffs_page_hdr.id      0xff..
@@ -47,7 +46,7 @@
  * File open:
  *   * aborted append / updated length:
  *   If obj header is MOVI:
- *   try finding a WRIT obj header with same or next cycle,
+ *   try finding a WRIT obj header with id,
  *   use this if found, delete MOVI. Else, copy MOVI as WRIT and
  *   delete MOVI. For used obj header:  check if there are more spix
  *   pages than file len allows, delete these
@@ -65,9 +64,9 @@
  * File read:
  *   * aborted rewrite / updated content:
  *   if a MOVI page is encountered, niffs must check for pages
- *   WRIT with same id/span index and same or next cycle. If found,
- *   use this page instead and delete MOVI. Else, copy MOVI
- *   page to free page as WRIT, delete MOVI page, and use dest.
+ *   WRIT with same id/span index. If found, use this page instead
+ *   and delete MOVI. Else, copy MOVI page to free page as WRIT,
+ *   delete MOVI page, and use dest.
  *
  * File trunc:
  *   trunc to zero/rm:
@@ -83,17 +82,16 @@
  *      delete all removed pages
  *
  * Check:
- *   sector headers for valid magic
+ *   X sector headers for valid magic
  *
- *   if FREE & (WRIT | MOVI) bad page, delete
- *   if both FREE & WRIT => aborted in midst of moving, remove page
- *   if MOVI and no equal page with same id and same or next cycle, copy and delete original
- *   if CLEA, aborted in midst of writing file - delete
+ *   X if FREE & (WRIT | MOVI) bad page, delete
+ *   X if MOVI and no equal page with same id, copy and delete original
  *   if MOVI object header => modified during trunc or append, check length and all spix with same id
+ *   file length - remove all pages where spix is beyond file size
  *
- *   remove orphans - check for WRIT && MOVI with ids and spix > 0 having no corresponding page with spix == 0, remove all
- *   file length - remove all pages where spix is beyond file size, if length == 0, also remove obj hdr
- *   if obj hdr flag is WRIT, but length is UNDEF, fail during append, remove all containing same id
+ *   X remove orphans - check for WRIT && MOVI with ids and spix > 0 having no corresponding page with spix == 0, remove all
+ *   X file length - if length == 0, remove all with same id, including obj hdr
+ *   X if obj hdr flag is WRIT, but length is UNDEF, fail during append, remove all containing same id
  *
  *  Created on: Feb 3, 2015
  *      Author: petera
@@ -176,7 +174,6 @@ typedef struct {
   union {
     niffs_page_id_raw raw;
     struct {
-      u8_t cycle_ix : 2;
       niffs_span_ix spix : NIFFS_SPAN_IX_BITS;
       niffs_obj_id obj_id : NIFFS_OBJ_ID_BITS;
     };
@@ -211,6 +208,9 @@ TESTATIC int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset);
 TESTATIC int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len);
 TESTATIC int niffs_modify(niffs *fs, int fd_ix, u32_t offs, u8_t *src, u32_t len);
 TESTATIC int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len);
+
 TESTATIC int niffs_gc(niffs *fs, u32_t *freed_pages);
+
+TESTATIC int niffs_chk(niffs *fs);
 
 #endif /* NIFFS_INTERNAL_H_ */

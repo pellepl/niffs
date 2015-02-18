@@ -63,5 +63,7 @@ typedef signed char s8_t;
 #define ERR_NIFFS_TEST_WRITE_TO_NONERASED_DATA  -1002
 #define ERR_NIFFS_TEST_BAD_ADDR                 -1003
 #define ERR_NIFFS_TEST_BAD_LEN                  -1004
+#define ERR_NIFFS_TEST_ABORTED_WRITE            -1005
+#define ERR_NIFFS_TEST_ABORTED_READ             -1006
 
 #endif /* TEST_NIFFS_TEST_CONFIG_H_ */
