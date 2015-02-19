@@ -43,7 +43,7 @@ typedef signed char s8_t;
 
 // niffs config
 
-#define NIFFS_DBG(...)          printf(__VA_ARGS__)
+//#define NIFFS_DBG(...)          printf(__VA_ARGS__)
 #define NIFFS_NAME_LEN          (16)
 #define NIFFS_OBJ_ID_BITS       (8)
 #define NIFFS_SPAN_IX_BITS      (6)

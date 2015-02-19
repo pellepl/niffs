@@ -85,6 +85,13 @@ int niffs_emul_init(void) {
   return 0;
 }
 
+void niffs_emul_rand_filesystem(void) {
+  u32_t i;
+  for (i = 0; i < sizeof(_flash); i++) {
+    _flash[i] = rand();
+  }
+}
+
 void niffs_emul_set_write_byte_limit(u32_t limit) {
   valid_byte_writes = limit;
 }
@@ -128,13 +135,14 @@ void niffs_emul_dump_pix(niffs *fs, niffs_page_ix pix) {
 u8_t *niffs_emul_create_data(char *name, u32_t len) {
   fdata *e = malloc(sizeof(fdata));
   NIFFS_ASSERT(e);
-  strncpy(e->name, name, sizeof(e->name));
+  strncpy(e->name, name, 32);
 
-  u32_t seed = 0;
+  u32_t seed = 0x20050715;
   int i;
-  for(i = 0; i < strlen(name); i++) {
-    seed <<= 8;
-    seed |= name[i];
+  for(i = 0; i < strlen(e->name); i++) {
+    seed ^= ((seed & 0xf0000000) >> 28);
+    seed <<= 4;
+    seed ^= e->name[i];
   }
 
   u8_t *d = malloc(len);
@@ -153,16 +161,17 @@ u8_t *niffs_emul_create_data(char *name, u32_t len) {
     dlast = e;
   } else {
     dlast->next = e;
+    dlast = e;
   }
-
   return d;
 }
 
 void niffs_emul_destroy_all_data(void) {
   while (dhead) {
     free(dhead->data);
+    fdata *pdhead = dhead;
     dhead = dhead->next;
-    free(dhead);
+    free(pdhead);
   }
   dlast = 0;
 }
@@ -175,6 +184,7 @@ u8_t *niffs_emul_get_data(char *name, u32_t *len) {
       return e->data;
     }
   }
+  NIFFS_ASSERT(0);
   return 0;
 }
 

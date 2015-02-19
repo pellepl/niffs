@@ -15,6 +15,7 @@
 extern niffs fs;
 
 int niffs_emul_init(void);
+void niffs_emul_rand_filesystem(void);
 void niffs_emul_dump_pix(niffs *fs, niffs_page_ix pix);
 u8_t *niffs_emul_create_data(char *name, u32_t len);
 void niffs_emul_destroy_all_data(void);

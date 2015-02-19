@@ -50,6 +50,19 @@ TEST(func_format_virgin) {
   return TEST_RES_OK;
 } TEST_END(func_format_virgin)
 
+TEST(func_mount_clean) {
+  TEST_CHECK_EQ(NIFFS_mount(&fs), ERR_NIFFS_NOT_A_FILESYSTEM);
+
+  return TEST_RES_OK;
+} TEST_END(func_mount_clean)
+
+TEST(func_mount_scrap) {
+  niffs_emul_rand_filesystem();
+  TEST_CHECK_EQ(NIFFS_mount(&fs), ERR_NIFFS_NOT_A_FILESYSTEM);
+
+  return TEST_RES_OK;
+} TEST_END(func_mount_scrap)
+
 TEST(func_find_free_page) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(res,  NIFFS_OK);
@@ -146,6 +159,25 @@ TEST(func_creat_full) {
 
   return TEST_RES_OK;
 } TEST_END(func_creat_full)
+
+TEST(func_fd) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  TEST_CHECK_EQ(niffs_create(&fs, "test"), NIFFS_OK);
+  int fd;
+  int fd_pre = -1;
+  u32_t i;
+  for (i = 0; i < fs.descs_len; i++) {
+    fd = niffs_open(&fs, "test");
+    TEST_CHECK(fd != fd_pre);
+    fd_pre = fd;
+  }
+  fd = niffs_open(&fs, "test");
+  TEST_CHECK_EQ(fd, ERR_NIFFS_OUT_OF_FILEDESCS);
+
+  return TEST_RES_OK;
+} TEST_END(func_fd)
 
 TEST(func_delete) {
   int res = NIFFS_format(&fs);
@@ -268,6 +300,10 @@ TEST(func_append_read) {
   }
 
   TEST_CHECK_EQ(res,  NIFFS_OK);
+
+  res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+  TEST_CHECK(res == ERR_NIFFS_END_OF_FILE);
+
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
   TEST_CHECK_EQ(ix, len+len2);
   TEST_CHECK_EQ(free_pages_clean - fs.free_pages, 1+1);
@@ -712,6 +748,10 @@ TEST(func_truncate) {
   }
 
   TEST_CHECK_EQ(res,  NIFFS_OK);
+
+  res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+  TEST_CHECK(res == ERR_NIFFS_END_OF_FILE);
+
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
   TEST_CHECK_EQ(ix, len);
   TEST_CHECK_EQ(fs.dele_pages, 0);
@@ -738,6 +778,10 @@ TEST(func_truncate) {
   }
 
   TEST_CHECK_EQ(res,  NIFFS_OK);
+
+  res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+  TEST_CHECK(res == ERR_NIFFS_END_OF_FILE);
+
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
   TEST_CHECK_EQ(ix, len);
   TEST_CHECK_EQ(fs.dele_pages, 1); // rewritten obj hdr
@@ -764,6 +808,10 @@ TEST(func_truncate) {
   }
 
   TEST_CHECK_EQ(res,  NIFFS_OK);
+
+  res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+  TEST_CHECK(res == ERR_NIFFS_END_OF_FILE);
+
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
   TEST_CHECK_EQ(ix, len);
   TEST_CHECK_EQ(fs.dele_pages, 1 + 2); // rewritten obj hdr + deleted page
@@ -864,8 +912,6 @@ TEST(func_gc) {
   return TEST_RES_OK;
 } TEST_END(func_gc)
 
-
-
 TEST(func_gc_big_hog) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
@@ -912,6 +958,133 @@ TEST(func_gc_big_hog) {
 
   return TEST_RES_OK;
 } TEST_END(func_gc_big_hog)
+
+TEST(func_gc_long_run) {
+#define TEST_CHECK_GC_LONG_RUN_FILES  10
+#define TEST_CHECK_GC_LONG_RUN_RUNS   1000
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  u8_t *data[TEST_CHECK_GC_LONG_RUN_FILES];
+  int i;
+  char name[16];
+
+  // create a bunch of test data
+  u32_t max_file_system_data_size = fs.pages_per_sector * (fs.sectors - 1) * fs.page_size -
+      (fs.pages_per_sector * (fs.sectors - 1) * sizeof(niffs_object_hdr));
+  const u32_t perc_sizes[TEST_CHECK_GC_LONG_RUN_FILES] = {3,4,5,6,7,8,9,10,15,20};
+  u32_t data_len[TEST_CHECK_GC_LONG_RUN_FILES];
+  for (i = 0; i < TEST_CHECK_GC_LONG_RUN_FILES; i++) {
+    sprintf(name, "name%i", i);
+    data_len[i] = (perc_sizes[i] * max_file_system_data_size) / 100;
+    data[i] = niffs_emul_create_data(name, data_len[i]);
+  }
+
+  srand(0x20140318);
+
+  int runs = 0;
+
+  u8_t created_file_map[TEST_CHECK_GC_LONG_RUN_FILES];
+  memset(created_file_map, 0, sizeof(created_file_map));
+  u32_t created_files = 0;
+  u8_t deleting = 0;
+
+  while (runs < TEST_CHECK_GC_LONG_RUN_RUNS) {
+    if (deleting) {
+      // randomly choose a file to delete
+      u32_t file_to_remove_ix = rand() % created_files;
+      u32_t ix = 0;
+      for (i = 0; i < TEST_CHECK_GC_LONG_RUN_FILES; i++) {
+        if (created_file_map[i]) {
+          ix++;
+          if (ix >= file_to_remove_ix) {
+            sprintf(name, "name%i", i);
+            int fd = niffs_open(&fs, name);
+            TEST_CHECK(fd >= 0);
+            res = niffs_truncate(&fs, fd, 0);
+            TEST_CHECK_EQ(res, NIFFS_OK);
+            TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+            created_files--;
+            created_file_map[i] = 0;
+            break;
+          }
+        }
+      }
+      if (created_files <= 5) {
+        deleting = 0;
+      }
+    } else {
+      // randomly choose a file to create
+      u32_t file_to_create_ix = rand() % (TEST_CHECK_GC_LONG_RUN_FILES-created_files);
+      u32_t ix = 0;
+      for (i = 0; i < TEST_CHECK_GC_LONG_RUN_FILES; i++) {
+        if (created_file_map[i] == 0) {
+          ix++;
+          if (ix >= file_to_create_ix) {
+            sprintf(name, "name%i", i);
+            res = niffs_create(&fs, name);
+            TEST_CHECK_EQ(res, NIFFS_OK);
+
+            int fd = niffs_open(&fs, name);
+            TEST_CHECK(fd >= 0);
+            res = niffs_append(&fs, fd, data[i], data_len[i]);
+            TEST_CHECK_EQ(res, NIFFS_OK);
+            TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+            created_files++;
+            created_file_map[i] = 1;
+            break;
+          }
+        }
+      }
+      if (created_files >= 9) {
+        deleting = 1;
+      }
+    }
+    runs++;
+  }
+
+  // check current file validity
+  for (i = 0; i < TEST_CHECK_GC_LONG_RUN_FILES; i++) {
+    if (created_file_map[i]) {
+      sprintf(name, "name%i", i);
+      int fd = niffs_open(&fs, name);
+      TEST_CHECK(fd >= 0);
+
+      u8_t *rptr;
+      u32_t rlen;
+      u32_t ix = 0;
+      u32_t len = data_len[i];
+
+      while (ix < len) {
+        res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+        TEST_CHECK(res > 0);
+        res = memcmp(rptr, &data[i][ix], rlen);
+        TEST_CHECK_EQ(res,  0);
+        ix += rlen;
+        res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+        TEST_CHECK_EQ(res,  NIFFS_OK);
+      }
+
+      TEST_CHECK_EQ(res,  NIFFS_OK);
+      TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+      TEST_CHECK_EQ(ix, len);
+    } else {
+      sprintf(name, "name%i", i);
+      int fd = niffs_open(&fs, name);
+      TEST_CHECK(fd == ERR_NIFFS_FILE_NOT_FOUND);
+    }
+  }
+
+  // check erase counts
+  u32_t era_min, era_max;
+  niffs_emul_get_sector_erase_count_info(&fs, &era_min, &era_max);
+  TEST_CHECK(era_max > 1);
+  TEST_CHECK(era_min > 1);
+  TEST_CHECK(((era_max - era_min)*100)/era_max < 50);
+  NIFFS_DBG("ERA INF min:%i max:%i span:%i\n", era_min, era_max, ((era_max - era_min)*100)/era_max);
+
+  return TEST_RES_OK;
+} TEST_END(func_gc_long_run)
 
 TEST(func_check_aborted_delete) {
   int res = NIFFS_format(&fs);
@@ -1055,6 +1228,76 @@ TEST(func_check_aborted_append) {
 
   return TEST_RES_OK;
 } TEST_END(func_check_aborted_append)
+
+TEST(func_check_aborted_modify) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  // create file
+  res = niffs_create(&fs, "abortapp");
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  u32_t orig_len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * fs.pages_per_sector;
+  u8_t *orig_data = niffs_emul_create_data("abortapp", orig_len);
+  int fd = niffs_open(&fs, "abortapp");
+  TEST_CHECK(fd >= 0);
+  res = niffs_append(&fs, fd, orig_data, orig_len);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  // modify file, abort
+  u32_t mod_len = orig_len / 2;
+  u8_t *mod_data = niffs_emul_create_data("abortapp_more", mod_len);
+  fd = niffs_open(&fs, "abortapp");
+  TEST_CHECK(fd >= 0);
+  niffs_emul_set_write_byte_limit(mod_len/2);
+  res = niffs_modify(&fs, fd,  orig_len / 4, mod_data, mod_len);
+  TEST_CHECK_EQ(res, ERR_NIFFS_TEST_ABORTED_WRITE);
+
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  TEST_CHECK_EQ(res, ERR_NIFFS_TEST_ABORTED_WRITE);
+  TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_chk(&fs), NIFFS_OK);
+
+  u8_t *rptr;
+  u32_t rlen;
+  u32_t ix = 0;
+
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+  fd = niffs_open(&fs, "abortapp");
+  TEST_CHECK(fd >= 0);
+  TEST_CHECK_EQ(niffs_seek(&fs, fd, NIFFS_SEEK_SET, 0), NIFFS_OK);
+  while (ix < orig_len) {
+    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    TEST_CHECK(res > 0);
+    ix += rlen;
+    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    TEST_CHECK_EQ(res,  NIFFS_OK);
+  }
+
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+  TEST_CHECK_EQ(ix, orig_len);
+
+
+  return TEST_RES_OK;
+} TEST_END(func_check_aborted_modify)
+
+TEST(func_check_aborted_erase) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  niffs_emul_set_write_byte_limit(1);
+  res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(res, ERR_NIFFS_TEST_ABORTED_WRITE);
+
+  TEST_CHECK_EQ(niffs_chk(&fs), NIFFS_OK);
+
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  return TEST_RES_OK;
+} TEST_END(func_check_aborted_erase)
+
 
 
 SUITE_END(niffs_func_tests)

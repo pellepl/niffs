@@ -82,16 +82,16 @@
  *      delete all removed pages
  *
  * Check:
- *   X sector headers for valid magic
+ *   sector headers for valid magic
  *
- *   X if FREE & (WRIT | MOVI) bad page, delete
- *   X if MOVI and no equal page with same id, copy and delete original
+ *   if FREE & (WRIT | MOVI) bad page, delete
+ *   if MOVI and no equal page with same id, copy and delete original
  *   if MOVI object header => modified during trunc or append, check length and all spix with same id
  *   file length - remove all pages where spix is beyond file size
  *
- *   X remove orphans - check for WRIT && MOVI with ids and spix > 0 having no corresponding page with spix == 0, remove all
- *   X file length - if length == 0, remove all with same id, including obj hdr
- *   X if obj hdr flag is WRIT, but length is UNDEF, fail during append, remove all containing same id
+ *   remove orphans - check for WRIT && MOVI with ids and spix > 0 having no corresponding page with spix == 0, remove all
+ *   file length - if length == 0, remove all with same id, including obj hdr
+ *   if obj hdr flag is WRIT, but length is UNDEF, fail during append, remove all containing same id
  *
  *  Created on: Feb 3, 2015
  *      Author: petera
@@ -160,6 +160,8 @@
 )
 
 #define _NIFFS_IS_ID_VALID(phdr) ((phdr)->id.obj_id != (niffs_obj_id)-1 && (phdr)-> id.obj_id != 0)
+#define _NIFFS_IS_FLAG_VALID(phdr) \
+  ((phdr)->flag == _NIFFS_FLAG_CLEAN || (phdr)->flag == _NIFFS_FLAG_WRITTEN || (phdr)->flag == _NIFFS_FLAG_MOVING)
 #define _NIFFS_IS_OBJ_HDR(phdr) (_NIFFS_IS_ID_VALID(phdr) && (phdr->id.spix) == 0)
 
 #define NIFFS_EXCL_SECT_NONE  (u32_t)-1
