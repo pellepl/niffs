@@ -831,6 +831,60 @@ TEST(func_truncate) {
   return TEST_RES_OK;
 } TEST_END(func_truncate)
 
+TEST(func_rename) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  res = niffs_create(&fs, "orig");
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+
+  // append to empty file, three pages
+  int fd = niffs_open(&fs, "orig");
+  TEST_CHECK(fd >= 0);
+
+  u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * 2;
+  u8_t *d = niffs_emul_create_data("orig", len);
+
+  res = niffs_append(&fs, fd, d, len);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+
+  TEST_CHECK_EQ(niffs_rename(&fs, "orig", "new"), NIFFS_OK);
+
+  u8_t *rptr;
+  u32_t rlen;
+  u32_t ix = 0;
+
+  fd = niffs_open(&fs, "new");
+  TEST_CHECK(fd >= 0);
+  while (ix < len) {
+    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    TEST_CHECK(res > 0);
+    res = memcmp(rptr, &d[ix], rlen);
+    TEST_CHECK_EQ(res,  0);
+    ix += rlen;
+    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    TEST_CHECK_EQ(res,  NIFFS_OK);
+  }
+
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+
+  res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+  TEST_CHECK(res == ERR_NIFFS_END_OF_FILE);
+
+  TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
+  TEST_CHECK_EQ(ix, len);
+
+  TEST_CHECK_EQ(niffs_rename(&fs, "orig", "new2"), ERR_NIFFS_FILE_NOT_FOUND);
+
+  res = niffs_create(&fs, "new2");
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+
+  TEST_CHECK_EQ(niffs_rename(&fs, "new", "new2"), ERR_NIFFS_NAME_CONFLICT);
+
+  return TEST_RES_OK;
+} TEST_END(func_rename)
+
 TEST(func_gc) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);

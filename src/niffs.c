@@ -924,6 +924,68 @@ TESTATIC int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
   return res;
 }
 
+TESTATIC int niffs_rename(niffs *fs, char *old_name, char *new_name) {
+  niffs_page_ix dst_pix;
+  niffs_page_ix src_pix;
+  int res;
+
+  if (old_name == 0) return ERR_NIFFS_NULL_PTR;
+  if (new_name == 0) return ERR_NIFFS_NULL_PTR;
+
+  res = niffs_ensure_free_pages(fs, 1);
+  if (res != NIFFS_OK) return res;
+
+  res = niffs_find_free_page(fs, &dst_pix, NIFFS_EXCL_SECT_NONE);
+  if (res != NIFFS_OK) return res;
+
+  NIFFS_DBG("rename: name:%s->%s\n", old_name, new_name);
+
+  niffs_open_arg arg;
+
+  // find src file
+  memset(&arg, 0, sizeof(arg));
+  arg.name = old_name;
+  res = niffs_traverse(fs, 0, 0, niffs_open_v, &arg);
+  if (res == NIFFS_VIS_END) {
+    if (arg.oid_mov != 0) {
+      src_pix = arg.pix_mov;
+    } else {
+      return ERR_NIFFS_FILE_NOT_FOUND;
+    }
+  } else if (res != NIFFS_OK) {
+    return res;
+  } else {
+    src_pix = arg.pix;
+  }
+
+  // find dst file
+  memset(&arg, 0, sizeof(arg));
+  arg.name = new_name;
+  res = niffs_traverse(fs, 0, 0, niffs_open_v, &arg);
+  if (res == NIFFS_VIS_END) {
+    if (arg.oid_mov == 0) {
+      res = NIFFS_OK;
+    } else {
+      return ERR_NIFFS_NAME_CONFLICT;
+    }
+  } else if (res != NIFFS_OK) {
+    return res;
+  } else {
+    return ERR_NIFFS_NAME_CONFLICT;
+  }
+
+  // modify obj hdr
+  niffs_page_hdr *src_phdr = (niffs_page_hdr *) _NIFFS_PIX_2_ADDR(fs, src_pix);
+  memcpy(fs->buf, (u8_t *)src_phdr, fs->page_size);
+  strncpy((char *)fs->buf + offsetof(niffs_object_hdr, name), new_name, NIFFS_NAME_LEN);
+
+  // move and rewrite
+  res = niffs_move_page(fs, src_pix, dst_pix, fs->buf + sizeof(niffs_page_hdr),
+           _NIFFS_SPIX_2_PDATA_LEN(fs, 1), NIFFS_FLAG_MOVE_KEEP);
+
+  return res;
+}
+
 ///////////////////////////////////// GC /////////////////////////////////////
 
 static int niffs_ensure_free_pages(niffs *fs, u32_t pages) {
