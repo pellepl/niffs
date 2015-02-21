@@ -212,7 +212,7 @@ TESTATIC int niffs_modify(niffs *fs, int fd_ix, u32_t offs, u8_t *src, u32_t len
 TESTATIC int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len);
 TESTATIC int niffs_rename(niffs *fs, char *old_name, char *new_name);
 
-TESTATIC int niffs_gc(niffs *fs, u32_t *freed_pages);
+TESTATIC int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_pages);
 
 TESTATIC int niffs_chk(niffs *fs);
 

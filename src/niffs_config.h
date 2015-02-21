@@ -76,4 +76,5 @@ typedef u16_t niffs_flag; // must be sized on alignment
 typedef u16_t niffs_page_id_raw; // must comprise (2 + NIFFS_OBJ_ID_BITS + NIFFS_SPAN_IX_BITS)
 typedef u16_t niffs_page_ix;
 
+
 #endif /* NIFFS_CONFIG_H_ */
