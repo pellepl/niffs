@@ -29,7 +29,8 @@ MKDIR = mkdir -p
 #
 ###############
 
-CFILES = niffs_internal.c
+CFILES = niffs_internal.c \
+	niffs_api.c
 
 CFILES_TEST = main.c \
 	niffs_test_emul.c \

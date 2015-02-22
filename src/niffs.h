@@ -69,14 +69,14 @@ typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);
 // dummy type, for posix compliance
 typedef u16_t niffs_mode;
 // niffs file descriptor flags
-typedef u16_t niffs_flags;
+typedef u8_t niffs_fd_flags;
 
 typedef struct {
   niffs_obj_id obj_id;
   niffs_page_ix obj_pix;
   u32_t offs;
   niffs_page_ix cur_pix;
-  niffs_flags flags;
+  niffs_fd_flags flags;
 } niffs_file_desc;
 
 typedef struct {
@@ -161,7 +161,7 @@ int NIFFS_creat(niffs *fs, char *name, niffs_mode mode);
  *                      NIFFS_WR_ONLY, NIFFS_RDWR, NIFFS_DIRECT
  * @param mode          ignored, for posix compliance
  */
-int NIFFS_open(niffs *fs, char *name, u8_t flags);
+int NIFFS_open(niffs *fs, char *name, u8_t flags, niffs_mode mode);
 
 /**
  * Returns a pointer directly to the flash where data resides, and how many
@@ -174,7 +174,7 @@ int NIFFS_open(niffs *fs, char *name, u8_t flags);
  * @param len           populated with valid data length
  */
 
-int NIFFS_read_ptr(niffs *fs, int fd, const u8_t **ptr, u32_t *len);
+int NIFFS_read_ptr(niffs *fs, int fd, u8_t **ptr, u32_t *len);
 /**
  * Reads from given filehandle.
  * NB: consider using NIFFS_read_ptr instead. This will basically copy from your

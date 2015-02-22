@@ -1,20 +1,19 @@
 #include "niffs_internal.h"
 
-#define NIFFS_VIS_CONT        1
-#define NIFFS_VIS_END         2
-
-typedef int (* niffs_visitor_f)(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void *v_arg);
-
 static int niffs_ensure_free_pages(niffs *fs, u32_t pages);
 static int niffs_setup(niffs *fs);
 static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_page_ix *dst_pix);
 
 //////////////////////////////////// BASE ////////////////////////////////////
 
-static int niffs_traverse(niffs *fs, niffs_page_ix pix_start, niffs_page_ix pix_end, niffs_visitor_f v, void *v_arg) {
+int niffs_traverse(niffs *fs, niffs_page_ix pix_start, niffs_page_ix pix_end, niffs_visitor_f v, void *v_arg) {
   int res = NIFFS_OK;
   int v_res = NIFFS_OK;
   niffs_page_ix pix = pix_start;
+  if (pix >= fs->pages_per_sector * fs->sectors) {
+    pix = 0;
+    if (pix == pix_end) return NIFFS_VIS_END;
+  }
   do {
     v_res = v(fs, pix, (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, pix), v_arg);
     if (v_res != NIFFS_VIS_CONT) {
@@ -98,6 +97,13 @@ static int niffs_find_free_id_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *ph
     }
   }
   return NIFFS_VIS_CONT;
+}
+
+int niffs_get_filedesc(niffs *fs, int fd_ix, niffs_file_desc **fd) {
+  if (fd_ix < 0 || fd_ix >= (int)fs->descs_len) return ERR_NIFFS_FILEDESC_BAD;
+  if (fs->descs[fd_ix].obj_id == 0) return ERR_NIFFS_FILEDESC_CLOSED;
+  *fd = &fs->descs[fd_ix];
+  return NIFFS_OK;
 }
 
 TESTATIC int niffs_find_free_id(niffs *fs, niffs_obj_id *oid, char *conflict_name) {
@@ -342,7 +348,7 @@ TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr
 
 /////////////////////////////////// FILE /////////////////////////////////////
 
-TESTATIC int niffs_create(niffs *fs, char *name) {
+int niffs_create(niffs *fs, char *name) {
   niffs_obj_id oid;
   niffs_page_ix pix;
   int res;
@@ -419,7 +425,7 @@ static int niffs_open_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void
   return NIFFS_VIS_CONT;
 }
 
-TESTATIC int niffs_open(niffs *fs, char *name) {
+int niffs_open(niffs *fs, char *name, niffs_fd_flags flags) {
   int fd_ix;
   int res = NIFFS_OK;
 
@@ -452,11 +458,12 @@ TESTATIC int niffs_open(niffs *fs, char *name) {
   fd->obj_id = arg.oid;
   fd->obj_pix = arg.pix;
   fd->cur_pix = arg.pix;
+  fd->flags = flags;
 
   return res == NIFFS_OK ? fd_ix : res;
 }
 
-TESTATIC int niffs_close(niffs *fs, int fd_ix) {
+int niffs_close(niffs *fs, int fd_ix) {
   int res = NIFFS_OK;
 
   if (fd_ix < 0 || fd_ix >= (int)fs->descs_len) return ERR_NIFFS_FILEDESC_BAD;
@@ -469,10 +476,10 @@ TESTATIC int niffs_close(niffs *fs, int fd_ix) {
   return res;
 }
 
-TESTATIC int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
-  if (fd_ix < 0 || fd_ix >= (int)fs->descs_len) return ERR_NIFFS_FILEDESC_BAD;
-  if (fs->descs[fd_ix].obj_id == 0) return ERR_NIFFS_FILEDESC_CLOSED;
-  niffs_file_desc *fd = &fs->descs[fd_ix];
+int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
+  niffs_file_desc *fd;
+  int res = niffs_get_filedesc(fs, fd_ix, &fd);
+  if (res != NIFFS_OK) return res;
   niffs_object_hdr *ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
   if (fd->offs >= ohdr->len) {
     *data = 0;
@@ -491,7 +498,7 @@ TESTATIC int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
   // make sure span index is coherent
   if (phdr->id.spix != _NIFFS_OFFS_2_SPIX(fs, fd->offs)) {
     niffs_page_ix pix;
-    int res = niffs_find_page(fs, &pix, fd->obj_id, _NIFFS_OFFS_2_SPIX(fs, fd->offs), fd->cur_pix);
+    res = niffs_find_page(fs, &pix, fd->obj_id, _NIFFS_OFFS_2_SPIX(fs, fd->offs), fd->cur_pix);
     if (res != NIFFS_OK) return res;
     fd->cur_pix = pix;
     phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->cur_pix);
@@ -508,11 +515,12 @@ TESTATIC int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
   return avail_data;
 }
 
-TESTATIC int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset) {
+int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset) {
   int res = NIFFS_OK;
-  if (fd_ix < 0 || fd_ix >= (int)fs->descs_len) return ERR_NIFFS_FILEDESC_BAD;
-  if (fs->descs[fd_ix].obj_id == 0) return ERR_NIFFS_FILEDESC_CLOSED;
-  niffs_file_desc *fd = &fs->descs[fd_ix];
+  niffs_file_desc *fd;
+
+  res = niffs_get_filedesc(fs, fd_ix, &fd);
+  if (res != NIFFS_OK) return res;
   niffs_object_hdr *ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
 
   s32_t coffs;
@@ -549,12 +557,13 @@ TESTATIC int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset) {
   return res;
 }
 
-TESTATIC int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
+int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
   int res = NIFFS_OK;
-  if (fd_ix < 0 || fd_ix >= (int)fs->descs_len) return ERR_NIFFS_FILEDESC_BAD;
-  if (fs->descs[fd_ix].obj_id == 0) return ERR_NIFFS_FILEDESC_CLOSED;
+  niffs_file_desc *fd;
+  res = niffs_get_filedesc(fs, fd_ix, &fd);
+  if (res != NIFFS_OK) return res;
+
   if (len == 0) return NIFFS_OK;
-  niffs_file_desc *fd = &fs->descs[fd_ix];
   niffs_object_hdr *orig_ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
   if (orig_ohdr->phdr.id.obj_id != fd->obj_id) return ERR_NIFFS_INCOHERENT_ID;
 
@@ -729,12 +738,13 @@ TESTATIC int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
   return res;
 }
 
-TESTATIC int niffs_modify(niffs *fs, int fd_ix, u32_t offset, u8_t *src, u32_t len) {
+int niffs_modify(niffs *fs, int fd_ix, u32_t offset, u8_t *src, u32_t len) {
   int res = NIFFS_OK;
-  if (fd_ix < 0 || fd_ix >= (int)fs->descs_len) return ERR_NIFFS_FILEDESC_BAD;
-  if (fs->descs[fd_ix].obj_id == 0) return ERR_NIFFS_FILEDESC_CLOSED;
+  niffs_file_desc *fd;
+  res = niffs_get_filedesc(fs, fd_ix, &fd);
+  if (res != NIFFS_OK) return res;
+
   if (len == 0) return NIFFS_OK;
-  niffs_file_desc *fd = &fs->descs[fd_ix];
   niffs_object_hdr *orig_ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
   if (orig_ohdr->phdr.id.obj_id != fd->obj_id) return ERR_NIFFS_INCOHERENT_ID;
   u32_t file_offs = orig_ohdr->len == NIFFS_UNDEF_LEN ? 0 : orig_ohdr->len;
@@ -845,12 +855,13 @@ static int niffs_remove_obj_id_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *p
   return NIFFS_VIS_CONT;
 }
 
-TESTATIC int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
+int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
   int res = NIFFS_OK;
 
-  if (fd_ix < 0 || fd_ix >= (int)fs->descs_len) return ERR_NIFFS_FILEDESC_BAD;
-  if (fs->descs[fd_ix].obj_id == 0) return ERR_NIFFS_FILEDESC_CLOSED;
-  niffs_file_desc *fd = &fs->descs[fd_ix];
+  niffs_file_desc *fd;
+  res = niffs_get_filedesc(fs, fd_ix, &fd);
+  if (res != NIFFS_OK) return res;
+
   niffs_object_hdr *orig_ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
   if (orig_ohdr->phdr.id.obj_id != fd->obj_id) return ERR_NIFFS_INCOHERENT_ID;
   if (new_len == orig_ohdr->len) return NIFFS_OK;
@@ -924,7 +935,7 @@ TESTATIC int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
   return res;
 }
 
-TESTATIC int niffs_rename(niffs *fs, char *old_name, char *new_name) {
+int niffs_rename(niffs *fs, char *old_name, char *new_name) {
   niffs_page_ix dst_pix;
   niffs_page_ix src_pix;
   int res;

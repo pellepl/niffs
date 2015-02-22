@@ -193,6 +193,11 @@ typedef struct {
   u8_t name[NIFFS_NAME_LEN];
 } niffs_object_hdr;
 
+#define NIFFS_VIS_CONT        1
+#define NIFFS_VIS_END         2
+
+typedef int (* niffs_visitor_f)(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void *v_arg);
+
 TESTATIC int niffs_find_free_id(niffs *fs, niffs_obj_id *id, char *conflict_name);
 TESTATIC int niffs_find_free_page(niffs *fs, niffs_page_ix *pix, u32_t excl_sector);
 TESTATIC int niffs_find_page(niffs *fs, niffs_page_ix *pix, niffs_obj_id oid, niffs_span_ix spix, niffs_page_ix start_pix);
@@ -202,18 +207,20 @@ TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst
 TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, u8_t *data, u32_t len);
 TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr);
 
-TESTATIC int niffs_create(niffs *fs, char *name);
-TESTATIC int niffs_open(niffs *fs, char *name);
-TESTATIC int niffs_close(niffs *fs, int fd_ix);
-TESTATIC int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail);
-TESTATIC int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset);
-TESTATIC int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len);
-TESTATIC int niffs_modify(niffs *fs, int fd_ix, u32_t offs, u8_t *src, u32_t len);
-TESTATIC int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len);
-TESTATIC int niffs_rename(niffs *fs, char *old_name, char *new_name);
+int niffs_traverse(niffs *fs, niffs_page_ix pix_start, niffs_page_ix pix_end, niffs_visitor_f v, void *v_arg);
+int niffs_get_filedesc(niffs *fs, int fd_ix, niffs_file_desc **fd);
+int niffs_create(niffs *fs, char *name);
+int niffs_open(niffs *fs, char *name, niffs_fd_flags flags);
+int niffs_close(niffs *fs, int fd_ix);
+int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail);
+int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset);
+int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len);
+int niffs_modify(niffs *fs, int fd_ix, u32_t offs, u8_t *src, u32_t len);
+int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len);
+int niffs_rename(niffs *fs, char *old_name, char *new_name);
 
-TESTATIC int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_pages);
+int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_pages);
 
-TESTATIC int niffs_chk(niffs *fs);
+int niffs_chk(niffs *fs);
 
 #endif /* NIFFS_INTERNAL_H_ */
