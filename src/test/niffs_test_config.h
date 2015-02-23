@@ -36,6 +36,8 @@ typedef signed char s8_t;
 #define EMUL_FILE_DESCS         4
 // divide sectors in maximum 128 byte blocks
 #define EMUL_PAGE_SIZE          128
+// give niffs a 128 byte work buffer
+#define EMUL_BUF_SIZE           128
 
 // enable checks for stm32f1 flash writes
 #define TEST_CHECK_UNALIGNED_ACCESS
@@ -51,7 +53,7 @@ typedef signed char s8_t;
 #define NIFFS_TYPE_OBJ_ID_SIZE      u8_t  // see NIFFS_OBJ_ID_BITS
 #define NIFFS_TYPE_SPAN_IX_SIZE     u8_t  // see NIFFS_SPAN_IX_BITS
 #define NIFFS_TYPE_RAW_PAGE_ID_SIZE u16_t // see NIFFS_OBJ_ID_BITS + NIFFS_SPAN_IX_BITS
-#define NIFFS_TYPE_PAGE_IX_SIZE     u16_t // max 65536 oages in filesystem
+#define NIFFS_TYPE_PAGE_IX_SIZE     u16_t // max 65536 pages in filesystem
 #define NIFFS_TYPE_PAGE_FLAG_SIZE   u16_t // use 16-bit page flag
 #define NIFFS_TYPE_MAGIC_SIZE       u16_t // use 16-bit magic nbr
 #define NIFFS_TYPE_ERASE_COUNT_SIZE u16_t // use 16-bit sector erase counter

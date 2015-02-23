@@ -1542,7 +1542,8 @@ int NIFFS_init(niffs *fs, u8_t *phys_addr, u32_t sectors, u32_t sector_size, u32
         (((fs->sector_size - sizeof(niffs_sector_hdr)) / fs->page_size) * fs->sectors));
     return ERR_NIFFS_BAD_CONF;
   }
-  if ((((fs->sector_size - sizeof(niffs_sector_hdr)) / fs->page_size) * fs->sectors) > (1<<(sizeof(niffs_page_ix) * 8))) {
+  if (sizeof(niffs_page_ix) < 4 &&
+  (((fs->sector_size - sizeof(niffs_sector_hdr)) / fs->page_size) * fs->sectors) > (1<<(sizeof(niffs_page_ix) * 8))) {
     NIFFS_DBG("conf  : niffs_page_ix type too small to address %i pages\n",
         (((fs->sector_size - sizeof(niffs_sector_hdr)) / fs->page_size) * fs->sectors));
     return ERR_NIFFS_BAD_CONF;

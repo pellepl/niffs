@@ -13,7 +13,7 @@
 #include "niffs_test_emul.h"
 
 static u8_t _flash[EMUL_SECTORS * EMUL_SECTOR_SIZE];
-static u8_t buf[EMUL_PAGE_SIZE];
+static u8_t buf[EMUL_BUF_SIZE];
 static niffs_file_desc descs[EMUL_FILE_DESCS];
 niffs fs;
 
