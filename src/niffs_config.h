@@ -8,7 +8,9 @@
 #ifndef NIFFS_CONFIG_H_
 #define NIFFS_CONFIG_H_
 
-#include "niffs_test_config.h" // remove this on target
+#ifdef NIFFS_TEST_MAKE
+#include "niffs_test_config.h"
+#endif
 
 // enable this define to configure for an STM32F1 target
 //#define NIFFS_STM32F1

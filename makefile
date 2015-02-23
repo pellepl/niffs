@@ -40,7 +40,7 @@ CFILES_TEST = main.c \
 	testsuites.c \
 	testrunner.c
 INCLUDE_DIRECTIVES = -I./${sourcedir} -I./${sourcedir}/default -I./${sourcedir}/test 
-CFLAGS_ALL = $(INCLUDE_DIRECTIVES) 
+CFLAGS_ALL = $(INCLUDE_DIRECTIVES) -DNIFFS_TEST_MAKE
 CFLAGS = $(CFLAGS_ALL)  -fprofile-arcs -ftest-coverage
 COMPILEROPTIONS_EXTRA = -Wall \
 -Wall -Wno-format-y2k -W -Wstrict-prototypes -Wmissing-prototypes \
