@@ -10,4 +10,5 @@
 void add_suites() {
   ADD_SUITE(niffs_cfg_tests);
   ADD_SUITE(niffs_func_tests);
+  ADD_SUITE(niffs_sys_tests);
 }

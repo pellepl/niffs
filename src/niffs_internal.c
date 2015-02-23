@@ -113,7 +113,7 @@ TESTATIC int niffs_find_free_id(niffs *fs, niffs_obj_id *oid, char *conflict_nam
 
   if (res != NIFFS_VIS_END) return res;
 
-  u32_t max_id = (((fs->sector_size - sizeof(niffs_sector_hdr)) / (fs->page_size)) * fs->sectors) - 2;
+  u32_t max_id = (fs->pages_per_sector * fs->sectors) - 2;
   u32_t cur_id;
   for (cur_id = 0; cur_id < max_id; cur_id += 8) {
     if (fs->buf[cur_id/8] == 0xff) continue;
@@ -480,8 +480,14 @@ int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
   niffs_file_desc *fd;
   int res = niffs_get_filedesc(fs, fd_ix, &fd);
   if (res != NIFFS_OK) return res;
+
+  if ((fd->flags & NIFFS_O_RDONLY) == 0) {
+    return ERR_NIFFS_NOT_READABLE;
+  }
+
   niffs_object_hdr *ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
-  if (fd->offs >= ohdr->len) {
+  u32_t flen = ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len;
+  if (fd->offs >= flen) {
     *data = 0;
     *avail = 0;
     return ERR_NIFFS_END_OF_FILE;
@@ -491,7 +497,7 @@ int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
   if (ohdr->phdr.id.obj_id != fd->obj_id) return ERR_NIFFS_INCOHERENT_ID;
 
   niffs_page_hdr *phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->cur_pix);
-  u32_t rem_tot = ohdr->len - fd->offs;
+  u32_t rem_tot = flen - fd->offs;
   u32_t rem_page = _NIFFS_SPIX_2_PDATA_LEN(fs, phdr->id.spix) - _NIFFS_OFFS_2_PDATA_OFFS(fs, fd->offs);
   u32_t avail_data = MIN(rem_tot, rem_page);
 
@@ -515,14 +521,14 @@ int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
   return avail_data;
 }
 
-int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset) {
+int niffs_seek(niffs *fs, int fd_ix, s32_t offset, u8_t whence) {
   int res = NIFFS_OK;
   niffs_file_desc *fd;
 
   res = niffs_get_filedesc(fs, fd_ix, &fd);
   if (res != NIFFS_OK) return res;
   niffs_object_hdr *ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
-
+  u32_t flen = ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len;
   s32_t coffs;
   switch (whence) {
   default:
@@ -533,19 +539,19 @@ int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset) {
     coffs = fd->offs + offset;
     break;
   case NIFFS_SEEK_END:
-    coffs = ohdr->len + offset;
+    coffs = flen + offset;
     break;
   }
 
   if (coffs < 0) {
     coffs = 0;
   } else {
-    coffs = MIN(ohdr->len, (u32_t)coffs);
+    coffs = MIN(flen, (u32_t)coffs);
   }
 
   if (_NIFFS_OFFS_2_SPIX(fs, (u32_t)coffs) != _NIFFS_OFFS_2_SPIX(fs, fd->offs)) {
     // new page
-    if (!((u32_t)coffs == ohdr->len && _NIFFS_OFFS_2_PDATA_OFFS(fs, (u32_t)coffs) == 0)) {
+    if (!((u32_t)coffs == flen && _NIFFS_OFFS_2_PDATA_OFFS(fs, (u32_t)coffs) == 0)) {
       niffs_page_ix seek_pix;
       res = niffs_find_page(fs, &seek_pix, fd->obj_id, _NIFFS_OFFS_2_SPIX(fs, (u32_t)coffs), fd->cur_pix);
       if (res != NIFFS_OK) return res;
@@ -562,6 +568,10 @@ int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
   niffs_file_desc *fd;
   res = niffs_get_filedesc(fs, fd_ix, &fd);
   if (res != NIFFS_OK) return res;
+
+  if ((fd->flags & NIFFS_O_WRONLY) == 0) {
+    return ERR_NIFFS_NOT_WRITABLE;
+  }
 
   if (len == 0) return NIFFS_OK;
   niffs_object_hdr *orig_ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
@@ -692,7 +702,7 @@ int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
     src += avail;
     data_offs += avail;
     written += avail;
-    fd->offs = written;
+    fd->offs += written;
   }
 
   if (res != NIFFS_OK) return res;
@@ -743,6 +753,10 @@ int niffs_modify(niffs *fs, int fd_ix, u32_t offset, u8_t *src, u32_t len) {
   niffs_file_desc *fd;
   res = niffs_get_filedesc(fs, fd_ix, &fd);
   if (res != NIFFS_OK) return res;
+
+  if ((fd->flags & NIFFS_O_WRONLY) == 0) {
+    return ERR_NIFFS_NOT_WRITABLE;
+  }
 
   if (len == 0) return NIFFS_OK;
   niffs_object_hdr *orig_ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
@@ -830,7 +844,7 @@ int niffs_modify(niffs *fs, int fd_ix, u32_t offset, u8_t *src, u32_t len) {
 
     written += avail;
     src += avail;
-    fd->offs = written;
+    fd->offs += written;
     fd->cur_pix = new_pix;
   }
 
@@ -862,11 +876,15 @@ int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
   res = niffs_get_filedesc(fs, fd_ix, &fd);
   if (res != NIFFS_OK) return res;
 
-  niffs_object_hdr *orig_ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
-  if (orig_ohdr->phdr.id.obj_id != fd->obj_id) return ERR_NIFFS_INCOHERENT_ID;
-  if (new_len == orig_ohdr->len) return NIFFS_OK;
-  if (new_len > orig_ohdr->len) return ERR_NIFFS_TRUNCATE_BEYOND_FILE;
+  if ((fd->flags & NIFFS_O_WRONLY) == 0) {
+    return ERR_NIFFS_NOT_WRITABLE;
+  }
 
+  niffs_object_hdr *orig_ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
+  u32_t flen = orig_ohdr->len == NIFFS_UNDEF_LEN ? 0 : orig_ohdr->len;
+  if (orig_ohdr->phdr.id.obj_id != fd->obj_id) return ERR_NIFFS_INCOHERENT_ID;
+  if (new_len != 0 && new_len == flen) return NIFFS_OK;
+  if (new_len > flen) return ERR_NIFFS_TRUNCATE_BEYOND_FILE;
 
   // CHECK SPACE
   if (new_len == 0) {
@@ -1323,9 +1341,9 @@ static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_p
   niffs_object_hdr *ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, pix);
   niffs_chk_movi_objhdr_tidy_arg t_arg = {
       .oid = ohdr->phdr.id.obj_id,
-      .gt_spix = _NIFFS_OFFS_2_SPIX(fs, ohdr->len)
+      .gt_spix = _NIFFS_OFFS_2_SPIX(fs, ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len)
   };
-  if (_NIFFS_OFFS_2_PDATA_OFFS(fs, ohdr->len) == 0) {
+  if (_NIFFS_OFFS_2_PDATA_OFFS(fs, ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len) == 0) {
     t_arg.gt_spix--;
   }
   NIFFS_DBG("  chck: find pages oid:%04x spix > %i for deleting\n", t_arg.oid, t_arg.gt_spix);
@@ -1510,25 +1528,36 @@ int NIFFS_init(niffs *fs, u8_t *phys_addr, u32_t sectors, u32_t sector_size, u32
   }
   fs->page_size = fs->page_size & (~(NIFFS_WORD_ALIGN-1));
 
-  // check validity
-  if (fs->page_size == 0 || fs->page_size > fs->sector_size) {
+  // check conf sanity
+  if (fs->page_size == 0 || fs->page_size > fs->sector_size/2) {
     NIFFS_DBG("conf  : page size over/underflow\n");
     return ERR_NIFFS_BAD_CONF;
   }
-  if (sizeof(niffs_page_id_raw)*8 < 2 + NIFFS_OBJ_ID_BITS + NIFFS_SPAN_IX_BITS) {
-    NIFFS_DBG("conf  : niffs_page_id_raw type too small\n");
+  if (sizeof(niffs_page_id_raw)*8 < NIFFS_OBJ_ID_BITS + NIFFS_SPAN_IX_BITS) {
+    NIFFS_DBG("conf  : niffs_page_id_raw type too small to fit defines NIFFS_OBJ_ID_BITS and NIFFS_SPAN_IX_BITS\n");
     return ERR_NIFFS_BAD_CONF;
   }
-  if ((((fs->sector_size - sizeof(niffs_sector_hdr)) / (fs->page_size)) * fs->sectors) - 2 > (1<<NIFFS_OBJ_ID_BITS)) {
-    NIFFS_DBG("conf  : niffs_obj_id type too small\n");
+  if ((((fs->sector_size - sizeof(niffs_sector_hdr)) / fs->page_size) * fs->sectors) > (1<<NIFFS_OBJ_ID_BITS)) {
+    NIFFS_DBG("conf  : niffs_obj_id type too small to ensure object id uniqueness of %i pages\n",
+        (((fs->sector_size - sizeof(niffs_sector_hdr)) / fs->page_size) * fs->sectors));
+    return ERR_NIFFS_BAD_CONF;
+  }
+  if ((((fs->sector_size - sizeof(niffs_sector_hdr)) / fs->page_size) * fs->sectors) > (1<<(sizeof(niffs_page_ix) * 8))) {
+    NIFFS_DBG("conf  : niffs_page_ix type too small to address %i pages\n",
+        (((fs->sector_size - sizeof(niffs_sector_hdr)) / fs->page_size) * fs->sectors));
     return ERR_NIFFS_BAD_CONF;
   }
   if (sizeof(niffs_span_ix)*8 < NIFFS_SPAN_IX_BITS) {
-    NIFFS_DBG("conf  : niffs_span_ix type too small\n");
+    NIFFS_DBG("conf  : niffs_span_ix type too small to fint define NIFFS_SPAN_IX_BITS\n");
+    return ERR_NIFFS_BAD_CONF;
+  }
+  if (sizeof(niffs_obj_id)*8 < NIFFS_OBJ_ID_BITS) {
+    NIFFS_DBG("conf  : niffs_obj_id type too small to fit define NIFFS_OBJ_ID_BITS\n");
     return ERR_NIFFS_BAD_CONF;
   }
   if (buf_len < page_size || buf_len < (((sector_size * sectors) / page_size)+7) / 8) {
-    NIFFS_DBG("conf  : buffer length too small, need %i bytes\n", MAX(page_size, (((sector_size * sectors) / page_size)+7) / 8));
+    NIFFS_DBG("conf  : buffer length too small, need %i bytes\n",
+        MAX(page_size, (((sector_size * sectors) / page_size)+7) / 8));
     return ERR_NIFFS_BAD_CONF;
   }
 

@@ -189,9 +189,9 @@ typedef struct {
 
 typedef struct {
   niffs_page_hdr phdr;
-  u32_t len;
-  u8_t name[NIFFS_NAME_LEN];
-} niffs_object_hdr;
+  _NIFFS_ALIGN u32_t len;
+  _NIFFS_ALIGN u8_t name[NIFFS_NAME_LEN];
+}  _NIFFS_PACKED niffs_object_hdr;
 
 #define NIFFS_VIS_CONT        1
 #define NIFFS_VIS_END         2
@@ -213,7 +213,7 @@ int niffs_create(niffs *fs, char *name);
 int niffs_open(niffs *fs, char *name, niffs_fd_flags flags);
 int niffs_close(niffs *fs, int fd_ix);
 int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail);
-int niffs_seek(niffs *fs, int fd_ix, u8_t whence, s32_t offset);
+int niffs_seek(niffs *fs, int fd_ix, s32_t offset, u8_t whence);
 int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len);
 int niffs_modify(niffs *fs, int fd_ix, u32_t offs, u8_t *src, u32_t len);
 int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len);

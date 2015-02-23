@@ -13,10 +13,6 @@
 #include <stddef.h>
 #include <string.h>
 
-#define NIFFS_DUMP
-#define NIFFS_DUMP_OUT(...) printf(__VA_ARGS__)
-#define NIFFS_TEST
-
 typedef unsigned int u32_t;
 typedef unsigned short u16_t;
 typedef unsigned char u8_t;
@@ -29,25 +25,39 @@ typedef signed char s8_t;
 
 // test config
 
+// for test framework
+#define NIFFS_TEST
+#define TESTATIC
+// emulate 16 sectors
+#define EMUL_SECTORS            16
+// each sector is 1024 bytes
+#define EMUL_SECTOR_SIZE        1024
+// use max 4 filedescriptors
+#define EMUL_FILE_DESCS         4
+// divide sectors in maximum 128 byte blocks
+#define EMUL_PAGE_SIZE          128
+
+// enable checks for stm32f1 flash writes
 #define TEST_CHECK_UNALIGNED_ACCESS
 #define TEST_CHECK_WRITE_ON_NONERASED_DATA_OTHER_THAN_ZERO
 
-#define EMUL_SECTORS            8
-#define EMUL_SECTOR_SIZE        1024
-
-#define EMUL_FILE_DESCS         4
-
-#define TEST_PARAM_PAGE_SIZE    128
-
-#define TESTATIC
-
 // niffs config
 
-//#define NIFFS_DBG(...)          printf(__VA_ARGS__)
-#define NIFFS_NAME_LEN          (16)
-#define NIFFS_OBJ_ID_BITS       (8)
-#define NIFFS_SPAN_IX_BITS      (6)
-#define NIFFS_WORD_ALIGN        (2)
+//#define NIFFS_DBG(...)              printf(__VA_ARGS__)
+#define NIFFS_NAME_LEN              (16)  // max 16 characters file name
+#define NIFFS_OBJ_ID_BITS           (8)   // max 256-2 files
+#define NIFFS_SPAN_IX_BITS          (8)   // max 256 pages of data per file
+#define NIFFS_WORD_ALIGN            (2)   // 16-bit word alignment
+#define NIFFS_TYPE_OBJ_ID_SIZE      u8_t  // see NIFFS_OBJ_ID_BITS
+#define NIFFS_TYPE_SPAN_IX_SIZE     u8_t  // see NIFFS_SPAN_IX_BITS
+#define NIFFS_TYPE_RAW_PAGE_ID_SIZE u16_t // see NIFFS_OBJ_ID_BITS + NIFFS_SPAN_IX_BITS
+#define NIFFS_TYPE_PAGE_IX_SIZE     u16_t // max 65536 oages in filesystem
+#define NIFFS_TYPE_PAGE_FLAG_SIZE   u16_t // use 16-bit page flag
+#define NIFFS_TYPE_MAGIC_SIZE       u16_t // use 16-bit magic nbr
+#define NIFFS_TYPE_ERASE_COUNT_SIZE u16_t // use 16-bit sector erase counter
+#define NIFFS_DUMP                        // enable dumping
+#define NIFFS_DUMP_OUT(...)         printf(__VA_ARGS__)
+#define NIFFS_EXPERIMENTAL_GC_DISTRIBUTED_SPARE_SECTOR  // let's be bold
 
 #define NIFFS_ASSERT(x) do { \
   if (!(x)) { \
@@ -65,5 +75,8 @@ typedef signed char s8_t;
 #define ERR_NIFFS_TEST_BAD_LEN                  -1004
 #define ERR_NIFFS_TEST_ABORTED_WRITE            -1005
 #define ERR_NIFFS_TEST_ABORTED_READ             -1006
+#define ERR_NIFFS_TEST_REF_DATA_MISMATCH        -1007
+#define ERR_NIFFS_TEST_EOF                      -1008
+#define ERR_NIFFS_TEST_FATAL                    -1100
 
 #endif /* TEST_NIFFS_TEST_CONFIG_H_ */

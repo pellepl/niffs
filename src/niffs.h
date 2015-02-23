@@ -15,19 +15,21 @@
 #define NIFFS_SEEK_END          (2)
 
 /* Any write to the filehandle is appended to end of the file */
-#define NIFFS_APPEND                   (1<<0)
+#define NIFFS_O_APPEND                   (1<<0)
 /* If the opened file exists, it will be truncated to zero length before opened */
-#define NIFFS_TRUNC                    (1<<1)
+#define NIFFS_O_TRUNC                    (1<<1)
 /* If the opened file does not exist, it will be created before opened */
-#define NIFFS_CREAT                    (1<<2)
+#define NIFFS_O_CREAT                    (1<<2)
 /* The opened file may only be read */
-#define NIFFS_RDONLY                   (1<<3)
+#define NIFFS_O_RDONLY                   (1<<3)
 /* The opened file may only be writted */
-#define NIFFS_WRONLY                   (1<<4)
-/* The opened file may be both read and writted */
-#define NIFFS_RDWR                     (NIFFS_RDONLY | NIFFS_WRONLY)
+#define NIFFS_O_WRONLY                   (1<<4)
+/* The opened file may be both read and written */
+#define NIFFS_O_RDWR                     (NIFFS_O_RDONLY | NIFFS_O_WRONLY)
 /* Any writes to the filehandle will never be cached */
-#define NIFFS_DIRECT                   (1<<5)
+#define NIFFS_O_DIRECT                   (1<<5)
+/* If O_CREAT and O_EXCL are set, open() fails if the file exists. */
+#define NIFFS_O_EXCL                     (1<<6)
 
 
 #define NIFFS_OK                            0
@@ -63,6 +65,9 @@
 #define ERR_NIFFS_PAGE_FREE                 -30
 #define ERR_NIFFS_MOUNTED                   -31
 #define ERR_NIFFS_NOT_MOUNTED               -32
+#define ERR_NIFFS_NOT_WRITABLE              -33
+#define ERR_NIFFS_NOT_READABLE              -34
+#define ERR_NIFFS_FILE_EXISTS               -35
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
 typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);

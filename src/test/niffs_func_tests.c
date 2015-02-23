@@ -169,11 +169,11 @@ TEST(func_fd) {
   int fd_pre = -1;
   u32_t i;
   for (i = 0; i < fs.descs_len; i++) {
-    fd = niffs_open(&fs, "test", NIFFS_RDWR);
+    fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
     TEST_CHECK(fd != fd_pre);
     fd_pre = fd;
   }
-  fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK_EQ(fd, ERR_NIFFS_OUT_OF_FILEDESCS);
 
   return TEST_RES_OK;
@@ -207,13 +207,13 @@ TEST(func_open) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  int fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK_EQ(fd, ERR_NIFFS_FILE_NOT_FOUND);
 
   res = niffs_create(&fs, "test");
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
-  fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   return TEST_RES_OK;
@@ -229,7 +229,7 @@ TEST(func_append_read) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, almost a page
-  int fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0)-4;
@@ -238,7 +238,7 @@ TEST(func_append_read) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
-  fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u8_t *rptr;
@@ -251,7 +251,7 @@ TEST(func_append_read) {
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -262,7 +262,7 @@ TEST(func_append_read) {
   TEST_CHECK_EQ(fs.dele_pages, 0);
 
   // append one page file, rest of page
-  fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len2 = 4;
@@ -272,7 +272,7 @@ TEST(func_append_read) {
 
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
-  fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   ix = 0;
@@ -284,7 +284,7 @@ TEST(func_append_read) {
     res = memcmp(rptr, &d[ix], alen);
     TEST_CHECK_EQ(res,  0);
     ix += alen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -295,7 +295,7 @@ TEST(func_append_read) {
     res = memcmp(rptr, &d2[ix-len], alen);
     TEST_CHECK_EQ(res,  0);
     ix += alen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -310,7 +310,7 @@ TEST(func_append_read) {
   TEST_CHECK_EQ(fs.dele_pages, 1);
 
   // append one and a half pages
-  fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len3 = _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1)/2;
@@ -320,7 +320,7 @@ TEST(func_append_read) {
 
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
-  fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   ix = 0;
@@ -332,7 +332,7 @@ TEST(func_append_read) {
     res = memcmp(rptr, &d[ix], alen);
     TEST_CHECK_EQ(res,  0);
     ix += alen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -343,7 +343,7 @@ TEST(func_append_read) {
     res = memcmp(rptr, &d2[ix-len], alen);
     TEST_CHECK_EQ(res,  0);
     ix += alen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -354,7 +354,7 @@ TEST(func_append_read) {
     res = memcmp(rptr, &d3[ix-len-len2], alen);
     TEST_CHECK_EQ(res,  0);
     ix += alen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -365,7 +365,7 @@ TEST(func_append_read) {
   TEST_CHECK_EQ(fs.dele_pages, 2);
 
   // append just a little more data
-  fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len4 = 8;
@@ -374,7 +374,7 @@ TEST(func_append_read) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
-  fd = niffs_open(&fs, "test", NIFFS_RDWR);
+  fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   ix = 0;
@@ -386,7 +386,7 @@ TEST(func_append_read) {
     res = memcmp(rptr, &d[ix], alen);
     TEST_CHECK_EQ(res,  0);
     ix += alen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -397,7 +397,7 @@ TEST(func_append_read) {
      res = memcmp(rptr, &d2[ix-len], alen);
     TEST_CHECK_EQ(res,  0);
     ix += alen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -408,7 +408,7 @@ TEST(func_append_read) {
     res = memcmp(rptr, &d3[ix-len-len2], alen);
     TEST_CHECK_EQ(res,  0);
     ix += alen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -419,7 +419,7 @@ TEST(func_append_read) {
     res = memcmp(rptr, &d4[ix-len-len2-len3], alen);
     TEST_CHECK_EQ(res,  0);
     ix += alen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -440,7 +440,7 @@ TEST(func_modify_ohdr) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, one page
-  int fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0);
@@ -459,7 +459,7 @@ TEST(func_modify_ohdr) {
 
   // modify midst of ohdr page
 
-  fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   res = niffs_modify(&fs, fd, b_ix, dm, e_ix - b_ix);
@@ -469,14 +469,14 @@ TEST(func_modify_ohdr) {
   u32_t rlen;
   u32_t ix = 0;
 
-  TEST_CHECK_EQ(niffs_seek(&fs, fd, NIFFS_SEEK_SET, 0), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < len) {
     res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -496,7 +496,7 @@ TEST(func_modify_page) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, two pages
-  int fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1);
@@ -515,7 +515,7 @@ TEST(func_modify_page) {
 
   // modify midst of data page
 
-  fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   res = niffs_modify(&fs, fd, b_ix, dm, e_ix - b_ix);
@@ -525,14 +525,14 @@ TEST(func_modify_page) {
   u32_t rlen;
   u32_t ix = 0;
 
-  TEST_CHECK_EQ(niffs_seek(&fs, fd, NIFFS_SEEK_SET, 0), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < len) {
     res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -552,7 +552,7 @@ TEST(func_modify_pagespan) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, two pages
-  int fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1);
@@ -571,7 +571,7 @@ TEST(func_modify_pagespan) {
 
   // modify midst of ohdr page till midst of data page
 
-  fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   res = niffs_modify(&fs, fd, b_ix, dm, e_ix - b_ix);
@@ -581,14 +581,14 @@ TEST(func_modify_pagespan) {
   u32_t rlen;
   u32_t ix = 0;
 
-  TEST_CHECK_EQ(niffs_seek(&fs, fd, NIFFS_SEEK_SET, 0), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < len) {
     res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -608,7 +608,7 @@ TEST(func_modify_pagespan_nobreak) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, four pages
-  int fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1)*3;
@@ -627,7 +627,7 @@ TEST(func_modify_pagespan_nobreak) {
 
   // modify midst of ohdr page till midst of data page
 
-  fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   res = niffs_modify(&fs, fd, b_ix, dm, e_ix - b_ix);
@@ -637,14 +637,14 @@ TEST(func_modify_pagespan_nobreak) {
   u32_t rlen;
   u32_t ix = 0;
 
-  TEST_CHECK_EQ(niffs_seek(&fs, fd, NIFFS_SEEK_SET, 0), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < len) {
     res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -664,7 +664,7 @@ TEST(func_modify_beyond) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, one page
-  int fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0);
@@ -677,7 +677,7 @@ TEST(func_modify_beyond) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
-  fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u8_t *dm = niffs_emul_create_data("modified", len);
@@ -687,7 +687,7 @@ TEST(func_modify_beyond) {
 
   // modify midst of ohdr page
 
-  fd = niffs_open(&fs, "modify", NIFFS_RDWR);
+  fd = niffs_open(&fs, "modify", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u8_t *rptr;
@@ -700,7 +700,7 @@ TEST(func_modify_beyond) {
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -720,7 +720,7 @@ TEST(func_truncate) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, three pages
-  int fd = niffs_open(&fs, "trunc", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "trunc", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * 2;
@@ -735,7 +735,7 @@ TEST(func_truncate) {
   u32_t rlen;
   u32_t ix = 0;
 
-  fd = niffs_open(&fs, "trunc", NIFFS_RDWR);
+  fd = niffs_open(&fs, "trunc", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   while (ix < len) {
     res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
@@ -743,7 +743,7 @@ TEST(func_truncate) {
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -759,12 +759,12 @@ TEST(func_truncate) {
   // truncate half a page
 
   len -= _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) / 2;
-  fd = niffs_open(&fs, "trunc", NIFFS_RDWR);
+  fd = niffs_open(&fs, "trunc", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   TEST_CHECK_EQ(niffs_truncate(&fs, fd, len), NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
-  fd = niffs_open(&fs, "trunc", NIFFS_RDWR);
+  fd = niffs_open(&fs, "trunc", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   ix = 0;
   while (ix < len) {
@@ -773,7 +773,7 @@ TEST(func_truncate) {
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -789,12 +789,12 @@ TEST(func_truncate) {
   // truncate to two pages
 
   len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) * 2;
-  fd = niffs_open(&fs, "trunc", NIFFS_RDWR);
+  fd = niffs_open(&fs, "trunc", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   TEST_CHECK_EQ(niffs_truncate(&fs, fd, len), NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
-  fd = niffs_open(&fs, "trunc", NIFFS_RDWR);
+  fd = niffs_open(&fs, "trunc", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   ix = 0;
   while (ix < len) {
@@ -803,7 +803,7 @@ TEST(func_truncate) {
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -819,12 +819,12 @@ TEST(func_truncate) {
   // truncate, rm
 
   len = 0;
-  fd = niffs_open(&fs, "trunc", NIFFS_RDWR);
+  fd = niffs_open(&fs, "trunc", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   TEST_CHECK_EQ(niffs_truncate(&fs, fd, len), NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
-  fd = niffs_open(&fs, "trunc", NIFFS_RDWR);
+  fd = niffs_open(&fs, "trunc", NIFFS_O_RDWR);
   TEST_CHECK_EQ(fd, ERR_NIFFS_FILE_NOT_FOUND);
   TEST_CHECK_EQ(fs.dele_pages, 1 + 2 + 2); // rewritten obj hdr + deleted page
 
@@ -839,7 +839,7 @@ TEST(func_rename) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, three pages
-  int fd = niffs_open(&fs, "orig", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "orig", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * 2;
@@ -855,7 +855,7 @@ TEST(func_rename) {
   u32_t rlen;
   u32_t ix = 0;
 
-  fd = niffs_open(&fs, "new", NIFFS_RDWR);
+  fd = niffs_open(&fs, "new", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   while (ix < len) {
     res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
@@ -863,7 +863,7 @@ TEST(func_rename) {
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -896,7 +896,7 @@ TEST(func_gc) {
     TEST_CHECK_EQ(res,  NIFFS_OK);
     u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0);
     u8_t *data = niffs_emul_create_data(fname, len);
-    int fd = niffs_open(&fs, fname, NIFFS_RDWR);
+    int fd = niffs_open(&fs, fname, NIFFS_O_RDWR);
     TEST_CHECK(fd >= 0);
     res = niffs_append(&fs, fd, data, len);
     TEST_CHECK_EQ(res,  NIFFS_OK);
@@ -909,7 +909,7 @@ TEST(func_gc) {
   TEST_CHECK_EQ(fs.free_pages, fs.pages_per_sector);
   TEST_CHECK_EQ(fs.dele_pages, 0);
 
-  int fd = niffs_open(&fs, "t0", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "t0", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   TEST_CHECK_EQ(niffs_truncate(&fs, fd, 0), NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
@@ -920,22 +920,22 @@ TEST(func_gc) {
   TEST_CHECK_EQ(fs.free_pages, fs.pages_per_sector);
   TEST_CHECK_EQ(fs.dele_pages, 0);
 
-  fd = niffs_open(&fs, "t2", NIFFS_RDWR);
+  fd = niffs_open(&fs, "t2", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   TEST_CHECK_EQ(niffs_truncate(&fs, fd, 0), NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
-  fd = niffs_open(&fs, "t3", NIFFS_RDWR);
+  fd = niffs_open(&fs, "t3", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   TEST_CHECK_EQ(niffs_truncate(&fs, fd, 0), NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
-  fd = niffs_open(&fs, "t4", NIFFS_RDWR);
+  fd = niffs_open(&fs, "t4", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   TEST_CHECK_EQ(niffs_truncate(&fs, fd, 0), NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1)*3 - 5;
   u8_t *data = niffs_emul_create_data("overflow", len);
-  fd = niffs_open(&fs, "overflow", NIFFS_RDWR);
+  fd = niffs_open(&fs, "overflow", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   res = niffs_append(&fs, fd, data, len);
   TEST_CHECK_EQ(res,  NIFFS_OK);
@@ -944,7 +944,7 @@ TEST(func_gc) {
   TEST_CHECK_EQ(fs.free_pages, fs.pages_per_sector);
   TEST_CHECK_EQ(fs.dele_pages, 0);
 
-  fd = niffs_open(&fs, "overflow", NIFFS_RDWR);
+  fd = niffs_open(&fs, "overflow", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   u32_t ix = 0;
   u8_t *rptr;
@@ -955,7 +955,7 @@ TEST(func_gc) {
     res = memcmp(rptr, &data[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -975,7 +975,7 @@ TEST(func_gc_big_hog) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * (2*fs.pages_per_sector-1);
   u8_t *data = niffs_emul_create_data("bighog", len);
-  int fd = niffs_open(&fs, "bighog", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "bighog", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   res = niffs_append(&fs, fd, data, len);
   TEST_CHECK_EQ(res,  NIFFS_OK);
@@ -994,7 +994,7 @@ TEST(func_gc_big_hog) {
       sprintf(fname, "t%i_%i", i, needed_gc_runs_to_move_stalled_sector);
       res = niffs_create(&fs, fname);
       TEST_CHECK_EQ(res,  NIFFS_OK);
-      int fd = niffs_open(&fs, fname, NIFFS_RDWR);
+      int fd = niffs_open(&fs, fname, NIFFS_O_RDWR);
       TEST_CHECK(fd >= 0);
       res = niffs_truncate(&fs, fd, 0);
       TEST_CHECK_EQ(res, NIFFS_OK);
@@ -1012,6 +1012,54 @@ TEST(func_gc_big_hog) {
 
   return TEST_RES_OK;
 } TEST_END(func_gc_big_hog)
+
+TEST(func_gc_full) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  niffs_page_hdr phdr;
+  phdr.flag = _NIFFS_FLAG_WRITTEN;
+  phdr.id.spix = 0;
+
+  niffs_page_ix pix;
+  do {
+    niffs_obj_id id;
+    res = niffs_find_free_id(&fs, &id, 0);
+    if (res != NIFFS_OK) break;
+    phdr.id.obj_id = id;
+    res = niffs_find_free_page(&fs, &pix, NIFFS_EXCL_SECT_NONE);
+    if (res != NIFFS_OK) break;
+
+    res = niffs_write_phdr(&fs, pix, &phdr);
+    TEST_CHECK_EQ(res,  NIFFS_OK);
+  } while (res == NIFFS_OK);
+
+  TEST_CHECK(res == ERR_NIFFS_NO_FREE_PAGE || res == ERR_NIFFS_NO_FREE_ID);
+
+  res = NIFFS_unmount(&fs);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  res = NIFFS_mount(&fs);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  u32_t freed;
+  res = niffs_gc(&fs, &freed, 1);
+  TEST_CHECK_EQ(res, ERR_NIFFS_NO_GC_CANDIDATE);
+
+  u32_t i;
+  for (i = 0; i < fs.pages_per_sector; i++) {
+    res = niffs_delete_page(&fs, i);
+    TEST_CHECK_EQ(res,  NIFFS_OK);
+  }
+
+  res = NIFFS_unmount(&fs);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  res = NIFFS_mount(&fs);
+  TEST_CHECK_EQ(res,  NIFFS_OK);
+  res = niffs_gc(&fs, &freed, 1);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_GE(fs.free_pages, fs.pages_per_sector);
+
+  return TEST_RES_OK;
+} TEST_END(func_gc_full)
 
 TEST(func_gc_long_run) {
 #define TEST_CHECK_GC_LONG_RUN_FILES  10
@@ -1053,7 +1101,7 @@ TEST(func_gc_long_run) {
           ix++;
           if (ix >= file_to_remove_ix) {
             sprintf(name, "name%i", i);
-            int fd = niffs_open(&fs, name, NIFFS_RDWR);
+            int fd = niffs_open(&fs, name, NIFFS_O_RDWR);
             TEST_CHECK(fd >= 0);
             res = niffs_truncate(&fs, fd, 0);
             TEST_CHECK_EQ(res, NIFFS_OK);
@@ -1079,7 +1127,7 @@ TEST(func_gc_long_run) {
             res = niffs_create(&fs, name);
             TEST_CHECK_EQ(res, NIFFS_OK);
 
-            int fd = niffs_open(&fs, name, NIFFS_RDWR);
+            int fd = niffs_open(&fs, name, NIFFS_O_RDWR);
             TEST_CHECK(fd >= 0);
             res = niffs_append(&fs, fd, data[i], data_len[i]);
             TEST_CHECK_EQ(res, NIFFS_OK);
@@ -1101,7 +1149,7 @@ TEST(func_gc_long_run) {
   for (i = 0; i < TEST_CHECK_GC_LONG_RUN_FILES; i++) {
     if (created_file_map[i]) {
       sprintf(name, "name%i", i);
-      int fd = niffs_open(&fs, name, NIFFS_RDWR);
+      int fd = niffs_open(&fs, name, NIFFS_O_RDWR);
       TEST_CHECK(fd >= 0);
 
       u8_t *rptr;
@@ -1115,7 +1163,7 @@ TEST(func_gc_long_run) {
         res = memcmp(rptr, &data[i][ix], rlen);
         TEST_CHECK_EQ(res,  0);
         ix += rlen;
-        res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+        res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
         TEST_CHECK_EQ(res,  NIFFS_OK);
       }
 
@@ -1124,7 +1172,7 @@ TEST(func_gc_long_run) {
       TEST_CHECK_EQ(ix, len);
     } else {
       sprintf(name, "name%i", i);
-      int fd = niffs_open(&fs, name, NIFFS_RDWR);
+      int fd = niffs_open(&fs, name, NIFFS_O_RDWR);
       TEST_CHECK(fd == ERR_NIFFS_FILE_NOT_FOUND);
     }
   }
@@ -1149,7 +1197,7 @@ TEST(func_check_aborted_delete) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * (2*fs.pages_per_sector-1);
   u8_t *data = niffs_emul_create_data("undel", len);
-  int fd = niffs_open(&fs, "undel", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "undel", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   res = niffs_append(&fs, fd, data, len);
   TEST_CHECK_EQ(res,  NIFFS_OK);
@@ -1161,14 +1209,14 @@ TEST(func_check_aborted_delete) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1);
   data = niffs_emul_create_data("noorphan", len);
-  fd = niffs_open(&fs, "noorphan", NIFFS_RDWR);
+  fd = niffs_open(&fs, "noorphan", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   res = niffs_append(&fs, fd, data, len);
   TEST_CHECK_EQ(res,  NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
   // truncate header size for file to 0
-  fd = niffs_open(&fs, "undel", NIFFS_RDWR);
+  fd = niffs_open(&fs, "undel", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   niffs_emul_set_write_byte_limit(sizeof(u32_t)); // length in obj header
   res = niffs_truncate(&fs, fd, 0);
@@ -1195,7 +1243,7 @@ TEST(func_check_orphans) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * (2*fs.pages_per_sector-1);
   u8_t *data = niffs_emul_create_data("orphan", len);
-  int fd = niffs_open(&fs, "orphan", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "orphan", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   res = niffs_append(&fs, fd, data, len);
   TEST_CHECK_EQ(res,  NIFFS_OK);
@@ -1208,7 +1256,7 @@ TEST(func_check_orphans) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1);
   data = niffs_emul_create_data("noorphan", len);
-  fd = niffs_open(&fs, "noorphan", NIFFS_RDWR);
+  fd = niffs_open(&fs, "noorphan", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   res = niffs_append(&fs, fd, data, len);
   TEST_CHECK_EQ(res,  NIFFS_OK);
@@ -1236,7 +1284,7 @@ TEST(func_check_aborted_append) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   u32_t orig_len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0);
   u8_t *orig_data = niffs_emul_create_data("abortapp", orig_len);
-  int fd = niffs_open(&fs, "abortapp", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "abortapp", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   res = niffs_append(&fs, fd, orig_data, orig_len);
   TEST_CHECK_EQ(res,  NIFFS_OK);
@@ -1245,7 +1293,7 @@ TEST(func_check_aborted_append) {
   // append to file, abort
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * fs.pages_per_sector;
   u8_t *data = niffs_emul_create_data("abortapp_more", len);
-  fd = niffs_open(&fs, "abortapp", NIFFS_RDWR);
+  fd = niffs_open(&fs, "abortapp", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   niffs_emul_set_write_byte_limit(len-4);
   res = niffs_append(&fs, fd, data, len);
@@ -1262,16 +1310,16 @@ TEST(func_check_aborted_append) {
   u32_t ix = 0;
 
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
-  fd = niffs_open(&fs, "abortapp", NIFFS_RDWR);
+  fd = niffs_open(&fs, "abortapp", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
-  TEST_CHECK_EQ(niffs_seek(&fs, fd, NIFFS_SEEK_SET, 0), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < orig_len) {
     res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &orig_data[ix], rlen);
     TEST_CHECK_EQ(res,  0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
@@ -1292,7 +1340,7 @@ TEST(func_check_aborted_modify) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
   u32_t orig_len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * fs.pages_per_sector;
   u8_t *orig_data = niffs_emul_create_data("abortapp", orig_len);
-  int fd = niffs_open(&fs, "abortapp", NIFFS_RDWR);
+  int fd = niffs_open(&fs, "abortapp", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   res = niffs_append(&fs, fd, orig_data, orig_len);
   TEST_CHECK_EQ(res,  NIFFS_OK);
@@ -1301,7 +1349,7 @@ TEST(func_check_aborted_modify) {
   // modify file, abort
   u32_t mod_len = orig_len / 2;
   u8_t *mod_data = niffs_emul_create_data("abortapp_more", mod_len);
-  fd = niffs_open(&fs, "abortapp", NIFFS_RDWR);
+  fd = niffs_open(&fs, "abortapp", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   niffs_emul_set_write_byte_limit(mod_len/2);
   res = niffs_modify(&fs, fd,  orig_len / 4, mod_data, mod_len);
@@ -1318,14 +1366,14 @@ TEST(func_check_aborted_modify) {
   u32_t ix = 0;
 
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
-  fd = niffs_open(&fs, "abortapp", NIFFS_RDWR);
+  fd = niffs_open(&fs, "abortapp", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
-  TEST_CHECK_EQ(niffs_seek(&fs, fd, NIFFS_SEEK_SET, 0), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < orig_len) {
     res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     ix += rlen;
-    res = niffs_seek(&fs, fd, NIFFS_SEEK_SET, ix);
+    res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 

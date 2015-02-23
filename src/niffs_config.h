@@ -10,71 +10,136 @@
 
 #include "niffs_test_config.h" // remove this on target
 
+// enable this define to configure for an STM32F1 target
+//#define NIFFS_STM32F1
+
+#ifdef NIFFS_STM32F1
+#define NIFFS_WORD_ALIGN        (2)
+#define NIFFS_TYPE_PAGE_FLAG_SIZE u16_t
+#endif
+
+// for testing
 #ifndef TESTATIC
 #define TESTATIC static
 #endif
 
+// define for getting niffs debug output
 #ifndef NIFFS_DBG
 #define NIFFS_DBG(...)
 #endif
 
+// define NIFFS_DUMP to be able to visualize filesystem with NIFFS_dump
+//#define NIFFS_DUMP
 #ifdef NIFFS_DUMP
 #ifndef NIFFS_DUMP_OUT
+// used to output in NIFFS_dump
 #define NIFFS_DUMP_OUT(...)
 #endif
 #endif
 
+// define for assertions within niffs
 #ifndef NIFFS_ASSERT
 #define NIFFS_ASSERT(x)
 #endif
 
+// define maximum name length
 #ifndef NIFFS_NAME_LEN
 #define NIFFS_NAME_LEN          (16)
 #endif
 
+// define number of bits used for object ids, used for uniquely identify a file
 #ifndef NIFFS_OBJ_ID_BITS
 #define NIFFS_OBJ_ID_BITS       (8)
 #endif
 
+// define number of bits used for span indices, used for uniquely identify part of a file
 #ifndef NIFFS_SPAN_IX_BITS
-#define NIFFS_SPAN_IX_BITS      (6)
+#define NIFFS_SPAN_IX_BITS      (8)
 #endif
 
+// word align for target flash, e.g. stm32f1 can only write 16-bit words at a time
 #ifndef NIFFS_WORD_ALIGN
-#define NIFFS_WORD_ALIGN        (2)
+#define NIFFS_WORD_ALIGN        (1)
 #endif
 
+// garbage collection uses a score system to select sector to erase:
+// sector_score = sector_erase_difference * F1 + free_pages * F2 + deleted_pages * F3 + busy_pages * F4
+// sector with highest score is selected for garbage collection
+
+// F1: garbage collection score factor for sector erase difference
 #ifndef NIFFS_GC_SCORE_ERASE_CNT_DIFF
 #define NIFFS_GC_SCORE_ERASE_CNT_DIFF (100)
 #endif
+// F2: garbage collection score factor for percentage of free pages in sector
 #ifndef NIFFS_GC_SCORE_FREE
 #define NIFFS_GC_SCORE_FREE (-4)
 #endif
+// F3: garbage collection score factor for percentage of deleted pages in sector
 #ifndef NIFFS_GC_SCORE_DELE
 #define NIFFS_GC_SCORE_DELE (2)
 #endif
+// F4: garbage collection score factor for percentage of busy/written pages in sector
 #ifndef NIFFS_GC_SCORE_BUSY
 #define NIFFS_GC_SCORE_BUSY (-2)
 #endif
 
-#define NIFFS_EXPERIMENTAL_GC_DISTRIBUTED_SPARE_SECTOR
-
+// formula for selecting sector to garbage collect
+// free, dele and busy is the percentage (0-99) of each type
 #ifndef NIFFS_GC_SCORE
 #define NIFFS_GC_SCORE(era_cnt_diff, free, dele, busy) \
   ((era_cnt_diff) * NIFFS_GC_SCORE_ERASE_CNT_DIFF) + \
   ((free) * NIFFS_GC_SCORE_FREE) + \
   ((dele) * NIFFS_GC_SCORE_DELE) + \
   ((busy) * NIFFS_GC_SCORE_BUSY)
-
 #endif
 
-typedef u16_t niffs_magic; // must be sized on alignment
-typedef u16_t niffs_erase_cnt; // must be sized on alignment
-typedef u8_t niffs_obj_id; // must comprise NIFFS_OBJ_ID_BITS
-typedef u8_t niffs_span_ix; // must comprise NIFFS_SPAN_IX_BITS
-typedef u16_t niffs_flag; // must be sized on alignment
-typedef u16_t niffs_page_id_raw; // must comprise (2 + NIFFS_OBJ_ID_BITS + NIFFS_SPAN_IX_BITS)
-typedef u16_t niffs_page_ix;
+// enable this define to have the spare free pages worth a sector distributed,
+// disable to keep the spare free pages within same sector
+//#define NIFFS_EXPERIMENTAL_GC_DISTRIBUTED_SPARE_SECTOR
 
+// type sizes, depend of the size of the filesystem and the size of the pages
+
+// must comprise NIFFS_OBJ_ID_BITS
+#ifndef NIFFS_TYPE_OBJ_ID_SIZE
+#define NIFFS_TYPE_OBJ_ID_SIZE u8_t
+#endif
+
+// must comprise NIFFS_SPAN_IX_BITS
+#ifndef NIFFS_TYPE_SPAN_IX_SIZE
+#define NIFFS_TYPE_SPAN_IX_SIZE u8_t
+#endif
+
+// must comprise (NIFFS_OBJ_ID_BITS + NIFFS_SPAN_IX_BITS)
+#ifndef NIFFS_TYPE_RAW_PAGE_ID_SIZE
+#define NIFFS_TYPE_RAW_PAGE_ID_SIZE u16_t
+#endif
+
+// must uniquely address all pages
+#ifndef NIFFS_TYPE_PAGE_IX_SIZE
+#define NIFFS_TYPE_PAGE_IX_SIZE u16_t
+#endif
+
+// magic bits, must be sized on alignment, NIFFS_WORD_ALIGN
+#ifndef NIFFS_TYPE_MAGIC_SIZE
+#define NIFFS_TYPE_MAGIC_SIZE u16_t
+#endif
+
+// sector erase counter, must be sized on alignment, NIFFS_WORD_ALIGN
+#ifndef NIFFS_TYPE_ERASE_COUNT_SIZE
+#define NIFFS_TYPE_ERASE_COUNT_SIZE u16_t
+#endif
+
+// page flag, 3 values, must be sized on alignment, NIFFS_WORD_ALIGN
+#ifndef NIFFS_TYPE_PAGE_FLAG_SIZE
+#define NIFFS_TYPE_PAGE_FLAG_SIZE u8_t
+#endif
+
+typedef NIFFS_TYPE_OBJ_ID_SIZE niffs_obj_id;
+typedef NIFFS_TYPE_SPAN_IX_SIZE niffs_span_ix;
+typedef NIFFS_TYPE_RAW_PAGE_ID_SIZE niffs_page_id_raw;
+typedef NIFFS_TYPE_PAGE_IX_SIZE niffs_page_ix;
+typedef NIFFS_TYPE_MAGIC_SIZE niffs_magic;
+typedef NIFFS_TYPE_ERASE_COUNT_SIZE niffs_erase_cnt;
+typedef NIFFS_TYPE_PAGE_FLAG_SIZE niffs_flag;
 
 #endif /* NIFFS_CONFIG_H_ */
