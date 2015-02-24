@@ -19,7 +19,7 @@ niffs fs;
 
 typedef struct fdata_s{
   char name[32];
-  void *data;
+  u8_t *data;
   u32_t len;
   struct fdata_s *next;
 } fdata;
@@ -56,7 +56,7 @@ static int emul_hal_write_f(u8_t *addr, u8_t *src, u32_t len) {
     u8_t b = *src;
 #ifdef TEST_CHECK_WRITE_ON_NONERASED_DATA_OTHER_THAN_ZERO
     if (b != 0 && *addr != 0xff) {
-      printf("writing illegaly to address %p: %02x @ %02x\n", addr, b, *addr);
+      printf("writing illegally to address %p: %02x @ %02x\n", addr, b, *addr);
       return ERR_NIFFS_TEST_WRITE_TO_NONERASED_DATA;
     }
 #endif
@@ -65,9 +65,11 @@ static int emul_hal_write_f(u8_t *addr, u8_t *src, u32_t len) {
     //printf("%02x\n", *addr);
     addr++;
     src++;
-    if (valid_byte_writes) {
+    if (valid_byte_writes > 0) {
       --valid_byte_writes;
-      if (valid_byte_writes == 0) return ERR_NIFFS_TEST_ABORTED_WRITE;
+      if (valid_byte_writes == 0) {
+        return ERR_NIFFS_TEST_ABORTED_WRITE;
+      }
     }
   }
   return NIFFS_OK;
@@ -111,6 +113,14 @@ void memdump(u8_t *addr, u32_t len) {
     }
     printf("\n");
     a += 16;
+  }
+}
+
+void memrand(u8_t *d, u32_t len, u32_t seed) {
+  u32_t i;
+  srand(seed);
+  for (i = 0; i < len; i++){
+    d[i] = rand();
   }
 }
 
@@ -166,6 +176,108 @@ u8_t *niffs_emul_create_data(char *name, u32_t len) {
   return d;
 }
 
+static fdata *cursor = 0;
+
+void niffs_emul_reset_data_cursor(void) {
+  cursor = 0;
+}
+
+char *niffs_emul_get_next_data_name(void) {
+  if (cursor == 0) {
+    cursor = dhead;
+  } else {
+    cursor = cursor->next;
+  }
+  return cursor == 0 ? 0 : cursor->name;
+}
+
+u8_t *niffs_emul_extend_data(char *name, u32_t extra_len, u8_t *extra_data) {
+  fdata *cur_e = dhead;
+  fdata *e = 0;
+  while (cur_e) {
+    if (strcmp(name, cur_e->name) == 0) {
+      e = cur_e;
+      break;
+    }
+  }
+  NIFFS_ASSERT(e);
+
+  u8_t *ndata = malloc(e->len + extra_len);
+  NIFFS_ASSERT(ndata);
+  memcpy(ndata, e->data, e->len);
+  if (extra_data) memcpy(ndata + e->len, extra_data, extra_len);
+  free(e->data);
+  e->data = ndata;
+  e->len = e->len + extra_len;
+  return e->data;
+}
+
+u8_t *niffs_emul_write_data(char *name, u32_t offs, u8_t *data, u32_t len) {
+  fdata *cur_e = dhead;
+  fdata *e = 0;
+  while (cur_e) {
+    if (strcmp(name, cur_e->name) == 0) {
+      e = cur_e;
+      break;
+    }
+  }
+  NIFFS_ASSERT(e);
+
+  if (e->len < offs+len) {
+    (void)niffs_emul_extend_data(name, offs+len-e->len, 0);
+  }
+
+  memcpy(&e->data[offs], data, len);
+
+  return e->data;
+}
+
+u8_t *niffs_emul_write_rand_data(char *name, u32_t offs, u32_t seed, u32_t len) {
+  fdata *cur_e = dhead;
+  fdata *e = 0;
+  while (cur_e) {
+    if (strcmp(name, cur_e->name) == 0) {
+      e = cur_e;
+      break;
+    }
+  }
+  NIFFS_ASSERT(e);
+
+  if (e->len < offs+len) {
+    (void)niffs_emul_extend_data(name, offs+len-e->len, 0);
+  }
+
+  memrand(&e->data[offs], len, seed);
+
+  return e->data;
+}
+
+void niffs_emul_destroy_data(char *name) {
+  fdata *prev_e = 0;
+  fdata *cur_e = dhead;
+  while (cur_e) {
+    if (strcmp(name, cur_e->name) == 0) {
+      break;
+    }
+    prev_e = cur_e;
+    cur_e = cur_e->next;
+  }
+  NIFFS_ASSERT(cur_e);
+
+  if (dhead == cur_e) {
+    free(cur_e->data);
+    dhead = cur_e->next;
+    free(cur_e);
+  } else {
+    free(cur_e->data);
+    prev_e->next = cur_e->next;
+    free(cur_e);
+  }
+  if (dlast == cur_e) {
+    dlast = prev_e;
+  }
+}
+
 void niffs_emul_destroy_all_data(void) {
   while (dhead) {
     free(dhead->data);
@@ -183,6 +295,7 @@ u8_t *niffs_emul_get_data(char *name, u32_t *len) {
       if (len) *len = e->len;
       return e->data;
     }
+    e = e->next;
   }
   NIFFS_ASSERT(0);
   return 0;
@@ -257,4 +370,20 @@ int niffs_emul_verify_file_against_data(niffs *fs, char *name, u8_t *data) {
   } while (offs < s.size);
   (void)NIFFS_close(fs, fd);
   return res >= 0 ? NIFFS_OK : res;
+}
+
+int niffs_emul_remove_all_zerosized_files(niffs *fs) {
+  niffs_DIR d;
+  struct niffs_dirent e;
+  struct niffs_dirent *pe = &e;
+
+  NIFFS_opendir(fs, "/", &d);
+  while ((pe = NIFFS_readdir(&d, pe))) {
+    if (pe->size == 0) {
+      int res = NIFFS_remove(fs, pe->name);
+      if (res != NIFFS_OK) return res;
+    }
+  }
+  NIFFS_closedir(&d);
+  return NIFFS_OK;
 }

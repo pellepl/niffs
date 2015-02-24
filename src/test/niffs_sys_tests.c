@@ -136,6 +136,27 @@ TEST(sys_deleted_other_fd)
 TEST_END(sys_deleted_other_fd)
 
 
+TEST(sys_fd_overflow)
+{
+  int res;
+  niffs_stat s;
+  res = niffs_emul_create_file(&fs, "file", _NIFFS_SPIX_2_PDATA_LEN(&fs, 1));
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  int i = 0;
+  while (i < fs.descs_len) {
+    int fd = NIFFS_open(&fs, "file", NIFFS_O_RDONLY, 0);
+    TEST_CHECK_GE(fd, 0);
+    i++;
+  }
+  int fd = NIFFS_open(&fs, "file", NIFFS_O_RDONLY, 0);
+  TEST_CHECK_EQ(fd, ERR_NIFFS_OUT_OF_FILEDESCS);
+
+  return TEST_RES_OK;
+}
+TEST_END(sys_fd_overflow)
+
+
+
 TEST(sys_file_by_open)
 {
   int res;
@@ -751,12 +772,68 @@ TEST(sys_lseek_modification_append_multi) {
 }
 TEST_END(sys_lseek_modification_append_multi)
 
-TEST(sys_lseek_read) {
+TEST(sys_lseek) {
   int res;
   int fd;
   char *fname = "seekfile";
   int len = ((fs.sectors-1) * fs.pages_per_sector / 2) * _NIFFS_SPIX_2_PDATA_LEN(&fs, 1);
-  int runs = 100000;
+
+  fd = NIFFS_open(&fs, fname, NIFFS_O_TRUNC | NIFFS_O_CREAT | NIFFS_O_RDWR, 0);
+  TEST_CHECK_GE(fd, 0);
+
+  u8_t *refbuf = niffs_emul_create_data("seekfile", len);
+  res = NIFFS_write(&fs, fd, refbuf, len);
+  TEST_CHECK_EQ(res, len);
+
+  niffs_stat s;
+  TEST_CHECK_EQ(NIFFS_fstat(&fs, fd, &s), NIFFS_OK);
+
+  int offs;
+  int i;
+
+  for (i = 1; i < s.size; i++) {
+    res = NIFFS_lseek(&fs, fd, -i, NIFFS_SEEK_END);
+    TEST_CHECK_EQ(res, NIFFS_OK);
+    offs = s.size - i;
+    TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
+  }
+
+  for (i = 0; i < s.size; i++) {
+    res = NIFFS_lseek(&fs, fd, i, NIFFS_SEEK_SET);
+    TEST_CHECK_EQ(res, NIFFS_OK);
+    offs = i;
+    TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
+  }
+
+  res = NIFFS_lseek(&fs, fd, 0, NIFFS_SEEK_SET);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  offs = 0;
+  TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
+  for (i = 0; i < s.size; i++) {
+    res = NIFFS_lseek(&fs, fd, 1, NIFFS_SEEK_CUR);
+    TEST_CHECK_EQ(res, NIFFS_OK);
+    offs++;
+    TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
+  }
+  for (i = 0; i < s.size; i++) {
+    res = NIFFS_lseek(&fs, fd, -1, NIFFS_SEEK_CUR);
+    TEST_CHECK_EQ(res, NIFFS_OK);
+    offs--;
+    TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
+  }
+
+  (void)NIFFS_close(&fs, fd);
+
+  return TEST_RES_OK;
+}
+TEST_END(sys_lseek)
+
+TEST(sys_lseek_read_ftell) {
+  int res;
+  int fd;
+  char *fname = "seekfile";
+  int len = ((fs.sectors-1) * fs.pages_per_sector / 2) * _NIFFS_SPIX_2_PDATA_LEN(&fs, 1);
+  int runs = 10000;
 
   fd = NIFFS_open(&fs, fname, NIFFS_O_TRUNC | NIFFS_O_CREAT | NIFFS_O_RDWR, 0);
   TEST_CHECK_GE(fd, 0);
@@ -768,6 +845,7 @@ TEST(sys_lseek_read) {
   int offs = 0;
   res = NIFFS_lseek(&fs, fd, 0, NIFFS_SEEK_SET);
   TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
 
   while (runs--) {
     int i;
@@ -776,10 +854,12 @@ TEST(sys_lseek_read) {
       offs = (offs + 41 + sizeof(buf)) % len;
       res = NIFFS_lseek(&fs, fd, offs, NIFFS_SEEK_SET);
       TEST_CHECK_EQ(res, NIFFS_OK);
+      TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
     }
     res = NIFFS_lseek(&fs, fd, 41, NIFFS_SEEK_CUR);
     TEST_CHECK_EQ(res, NIFFS_OK);
     offs += 41;
+    TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
     res = NIFFS_read(&fs, fd, buf, sizeof(buf));
     TEST_CHECK_EQ(res, (u32_t)sizeof(buf));
     for (i = 0; i < sizeof(buf); i++) {
@@ -793,6 +873,7 @@ TEST(sys_lseek_read) {
     res = NIFFS_lseek(&fs, fd, -((u32_t)sizeof(buf)+11), NIFFS_SEEK_CUR);
     TEST_CHECK_EQ(res, NIFFS_OK);
     offs -= (sizeof(buf)+11);
+    TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
     res = NIFFS_read(&fs, fd, buf, sizeof(buf));
     TEST_CHECK_EQ(res, (u32_t)sizeof(buf));
     for (i = 0; i < sizeof(buf); i++) {
@@ -808,6 +889,6 @@ TEST(sys_lseek_read) {
 
   return TEST_RES_OK;
 }
-TEST_END(sys_lseek_read)
+TEST_END(sys_lseek_read_ftell)
 
 SUITE_END(niffs_sys_tests)

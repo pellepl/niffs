@@ -1039,17 +1039,32 @@ static int niffs_ensure_free_pages(niffs *fs, u32_t pages) {
     return ERR_NIFFS_FULL;
   }
 
+  // try cleaning away needed pages
+#define NIFFS_GC_DBG
   if (pages > fs->free_pages || fs->free_pages - pages < fs->pages_per_sector) {
-    // try cleaning away needed pages
-    do {
+#ifdef NIFFS_GC_DBG
+    int zero_runs = 0;
+    u32_t orig_dele_pages = fs->dele_pages;
+    u32_t orig_free_pages = fs->free_pages;
+#endif
+    while (pages > fs->free_pages || fs->free_pages - pages < fs->pages_per_sector) {
       NIFFS_DBG("ensure: run#%i need %i free, have %i-%i\n", run, pages, fs->free_pages, fs->pages_per_sector);
       u32_t freed_pages;
       // only allow gcing of a full page each fourth run
       res = niffs_gc(fs, &freed_pages, ((run - 1) % 4) == 0);
       if (res != NIFFS_OK) return res;
-      pages -= MIN(pages, freed_pages);
+#ifdef NIFFS_GC_DBG
+      if (freed_pages == 0) {
+        zero_runs++;
+        if (zero_runs > 3) {
+          NIFFS_dump(fs);
+          printf("want pages: %i   have: %i  had dele: %i  had free: %i\n", pages, fs->free_pages, orig_dele_pages, orig_free_pages);
+          NIFFS_ASSERT(0);
+        }
+      }
+#endif
       run++;
-    } while (pages > 0);
+    }
   }
 
   return res;
@@ -1127,7 +1142,7 @@ static int niffs_gc_find_candidate_sector(niffs *fs, niffs_gc_sector_cand *cand,
   return found ? NIFFS_OK : ERR_NIFFS_NO_GC_CANDIDATE;
 }
 
-TESTATIC int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_pages) {
+int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_pages) {
   niffs_gc_sector_cand cand;
   int res = niffs_gc_find_candidate_sector(fs, &cand, allow_full_pages);
   if (res != NIFFS_OK) return res;
@@ -1169,10 +1184,10 @@ TESTATIC int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_pages) {
   // update stats
   fs->dele_pages -= cand.dele_pages;
   fs->dele_pages -= cand.busy_pages; // this is added by moving all busy pages in erased sector
-  fs->free_pages += fs->pages_per_sector - cand.free_pages;
-  *freed_pages = cand.dele_pages;
+  fs->free_pages += (cand.dele_pages + cand.busy_pages);
+  *freed_pages = cand.dele_pages + cand.busy_pages;
 
-  NIFFS_DBG("gc    : freed %i pages\n", *freed_pages);
+  NIFFS_DBG("gc    : freed %i pages (%i dele, %i busy)\n", *freed_pages, cand.dele_pages, cand.busy_pages);
 
   return res;
 }
@@ -1410,7 +1425,7 @@ static int niffs_chk_movi_objhdr_pages(niffs *fs) {
   return NIFFS_OK;
 }
 
-TESTATIC int niffs_chk(niffs *fs) {
+int niffs_chk(niffs *fs) {
   if (fs->mounted) return ERR_NIFFS_MOUNTED;
 
   // niffs_chk will not try to ensure free pages by garbage collection before

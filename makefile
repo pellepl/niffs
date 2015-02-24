@@ -34,9 +34,10 @@ CFILES = niffs_internal.c \
 
 CFILES_TEST = main.c \
 	niffs_test_emul.c \
+	niffs_cfg_tests.c \
 	niffs_func_tests.c \
 	niffs_sys_tests.c \
-	niffs_cfg_tests.c \
+	niffs_run_tests.c \
 	testsuites.c \
 	testrunner.c
 INCLUDE_DIRECTIVES = -I./${sourcedir} -I./${sourcedir}/default -I./${sourcedir}/test 

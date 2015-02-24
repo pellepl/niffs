@@ -27,6 +27,8 @@ int NIFFS_open(niffs *fs, char *name, u8_t flags, niffs_mode mode) {
       res = niffs_create(fs, name);
       if (res == NIFFS_OK) {
         fd_ix = niffs_open(fs, name, flags);
+      } else {
+        fd_ix = res;
       }
     }
     res = fd_ix;
@@ -183,6 +185,17 @@ int NIFFS_fstat(niffs *fs, int fd_ix, niffs_stat *s) {
   return NIFFS_OK;
 }
 
+int NIFFS_ftell(niffs *fs, int fd_ix) {
+  if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
+  int res;
+
+  niffs_file_desc *fd;
+  res = niffs_get_filedesc(fs, fd_ix, &fd);
+  if (res != NIFFS_OK) return res;
+
+  return (int)fd->offs;
+}
+
 int NIFFS_close(niffs *fs, int fd) {
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
   return niffs_close(fs, fd);
@@ -236,4 +249,9 @@ struct niffs_dirent *NIFFS_readdir(niffs_DIR *d, struct niffs_dirent *e) {
   }
 
   return ret;
+}
+
+int NIFFS_chk(niffs *fs) {
+  if (fs->mounted) return ERR_NIFFS_MOUNTED;
+  return niffs_chk(fs);
 }

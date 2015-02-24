@@ -252,6 +252,13 @@ int NIFFS_stat(niffs *fs, char *name, niffs_stat *s);
 int NIFFS_fstat(niffs *fs, int fd, niffs_stat *s);
 
 /**
+ * Gets current position in stream
+ * @param fs            the file system struct
+ * @param fd            the filehandle of the file to return position from
+ */
+int NIFFS_ftell(niffs *fs, int fd);
+
+/**
  * Closes a filehandle. If there are pending write operations, these are finalized before closing.
  * @param fs            the file system struct
  * @param fd            the filehandle of the file to close
