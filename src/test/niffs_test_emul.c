@@ -12,6 +12,7 @@
 #include <string.h>
 #include "niffs_test_emul.h"
 
+u8_t __dbg = NIFFS_DBG_DEFAULT;
 static u8_t _flash[EMUL_SECTORS * EMUL_SECTOR_SIZE];
 static u8_t buf[EMUL_BUF_SIZE];
 static niffs_file_desc descs[EMUL_FILE_DESCS];
@@ -68,6 +69,7 @@ static int emul_hal_write_f(u8_t *addr, u8_t *src, u32_t len) {
     if (valid_byte_writes > 0) {
       --valid_byte_writes;
       if (valid_byte_writes == 0) {
+        NIFFS_DBG("*** emulated write abort\n");
         return ERR_NIFFS_TEST_ABORTED_WRITE;
       }
     }
@@ -166,7 +168,7 @@ u8_t *niffs_emul_create_data(char *name, u32_t len) {
     d[i] = rand();
   }
 
-  if (dhead == NULL) {
+  if (dhead == 0) {
     dhead = e;
     dlast = e;
   } else {
@@ -326,7 +328,9 @@ int niffs_emul_create_file(niffs *fs, char *name, u32_t len) {
   if (res < 0) return res;
   niffs_stat s;
   res = NIFFS_fstat(fs, fd, &s);
-  if (s.size != len) return ERR_NIFFS_TEST_FATAL;
+  if (s.size != len) {
+    return ERR_NIFFS_TEST_FATAL;
+  }
   u8_t buf[64];
   u32_t offs = 0;
   do {
@@ -334,8 +338,22 @@ int niffs_emul_create_file(niffs *fs, char *name, u32_t len) {
     res = NIFFS_read(fs, fd, &buf[0], rlen);
     if (res == 0) return ERR_NIFFS_TEST_EOF;
     if (res < 0) return res;
-    if (res != rlen) return ERR_NIFFS_TEST_FATAL;
-    if (memcmp(buf, &data[offs], rlen) != 0) return ERR_NIFFS_TEST_REF_DATA_MISMATCH;
+    if (res != rlen) {
+      return ERR_NIFFS_TEST_FATAL;
+    }
+    if (memcmp(buf, &data[offs], rlen) != 0) {
+      u32_t ix;
+      u32_t mismatch_ix;
+      memdump(buf, sizeof(buf));
+      memdump(&data[offs < 32 ? 0 : offs-32], sizeof(buf));
+      for (ix = 0; ix < rlen; ix++) {
+        if (buf[ix] != data[offs+ix]) {
+          mismatch_ix = ix;
+        }
+      }
+      NIFFS_DBG("mismatch @ offset %i\n", offs+mismatch_ix);
+      return ERR_NIFFS_TEST_REF_DATA_MISMATCH;
+    }
     offs += rlen;
   } while (offs < len);
   (void)NIFFS_close(fs, fd);
@@ -345,17 +363,23 @@ int niffs_emul_create_file(niffs *fs, char *name, u32_t len) {
 int niffs_emul_verify_file(niffs *fs, char *name) {
   u32_t dlen;
   u8_t *data = niffs_emul_get_data(name, &dlen);
-  if (data == 0) return ERR_NIFFS_TEST_FATAL;
+  if (data == 0) {
+    return ERR_NIFFS_TEST_FATAL;
+  }
   return niffs_emul_verify_file_against_data(fs, name, data);
 }
 
 int niffs_emul_verify_file_against_data(niffs *fs, char *name, u8_t *data) {
   int fd = NIFFS_open(fs, name, NIFFS_O_RDONLY, 0);
   if (fd < 0) return fd;
-  if (data == 0) return ERR_NIFFS_TEST_FATAL;
+  if (data == 0) {
+    return ERR_NIFFS_TEST_FATAL;
+  }
   niffs_stat s;
   int res = NIFFS_fstat(fs, fd, &s);
-  if (res != NIFFS_OK) return ERR_NIFFS_TEST_FATAL;
+  if (res != NIFFS_OK) {
+    return ERR_NIFFS_TEST_FATAL;
+  }
 
   u8_t buf[8];
   u32_t offs = 0;
@@ -364,8 +388,22 @@ int niffs_emul_verify_file_against_data(niffs *fs, char *name, u8_t *data) {
     res = NIFFS_read(fs, fd, &buf[0], rlen);
     if (res == 0) return ERR_NIFFS_TEST_EOF;
     if (res < 0) return res;
-    if (res != rlen) return ERR_NIFFS_TEST_FATAL;
-    if (memcmp(buf, &data[offs], rlen) != 0) return ERR_NIFFS_TEST_REF_DATA_MISMATCH;
+    if (res != rlen) {
+      return ERR_NIFFS_TEST_FATAL;
+    }
+    if (memcmp(buf, &data[offs], rlen) != 0) {
+      u32_t ix;
+      u32_t mismatch_ix;
+      memdump(buf, sizeof(buf));
+      memdump(&data[offs < 32 ? 0 : offs-32], sizeof(buf));
+      for (ix = 0; ix < rlen; ix++) {
+        if (buf[ix] != data[offs+ix]) {
+          mismatch_ix = ix;
+        }
+      }
+      NIFFS_DBG("mismatch @ offset %i\n", offs+mismatch_ix);
+      return ERR_NIFFS_TEST_REF_DATA_MISMATCH;
+    }
     offs += rlen;
   } while (offs < s.size);
   (void)NIFFS_close(fs, fd);

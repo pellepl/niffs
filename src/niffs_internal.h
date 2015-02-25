@@ -168,8 +168,8 @@
 #define NIFFS_UNDEF_LEN       (u32_t)-1
 
 typedef struct {
-  _NIFFS_ALIGN niffs_magic abra; // page size xored with magic
   _NIFFS_ALIGN niffs_erase_cnt era_cnt;
+  _NIFFS_ALIGN niffs_magic abra; // page size xored with magic
 } _NIFFS_PACKED niffs_sector_hdr;
 
 typedef struct {

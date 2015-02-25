@@ -68,6 +68,7 @@
 #define ERR_NIFFS_NOT_WRITABLE              -33
 #define ERR_NIFFS_NOT_READABLE              -34
 #define ERR_NIFFS_FILE_EXISTS               -35
+#define ERR_NIFFS_OVERFLOW                  -36
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
 typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);

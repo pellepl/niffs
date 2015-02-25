@@ -45,7 +45,9 @@ typedef signed char s8_t;
 
 // niffs config
 
-//#define NIFFS_DBG(...)              printf(__VA_ARGS__)
+extern u8_t __dbg;
+#define NIFFS_DBG_DEFAULT           0
+#define NIFFS_DBG(...)              if (__dbg) printf(__VA_ARGS__)
 #define NIFFS_NAME_LEN              (16)  // max 16 characters file name
 #define NIFFS_OBJ_ID_BITS           (8)   // max 256-2 files
 #define NIFFS_SPAN_IX_BITS          (8)   // max 256 pages of data per file
@@ -59,7 +61,7 @@ typedef signed char s8_t;
 #define NIFFS_TYPE_ERASE_COUNT_SIZE u16_t // use 16-bit sector erase counter
 #define NIFFS_DUMP                        // enable dumping
 #define NIFFS_DUMP_OUT(...)         printf(__VA_ARGS__)
-#define NIFFS_EXPERIMENTAL_GC_DISTRIBUTED_SPARE_SECTOR  // let's be bold
+//#define NIFFS_EXPERIMENTAL_GC_DISTRIBUTED_SPARE_SECTOR  // let's be bold
 
 #define NIFFS_ASSERT(x) do { \
   if (!(x)) { \
