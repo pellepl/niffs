@@ -1237,7 +1237,7 @@ static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, nif
       (_NIFFS_IS_FREE(phdr) && (_NIFFS_IS_WRIT(phdr) || _NIFFS_IS_MOVI(phdr))) ||
       (!_NIFFS_IS_FREE(phdr) && _NIFFS_IS_CLEA(phdr))) {
     // found a page bad flag status
-    NIFFS_DBG("check : pix %04x bad flag status (free & (writ | movi)) delete hard\n", pix);
+    NIFFS_DBG("check : pix %04x bad flag status fl/id:%04x/%04x delete hard\n", pix, phdr->flag, phdr->id.raw);
     niffs_page_id_raw delete_raw_id = _NIFFS_PAGE_DELE_ID;
     res = fs->hal_wr((u8_t *)phdr + offsetof(niffs_page_hdr, id), (u8_t *)&delete_raw_id, sizeof(niffs_page_id_raw));
     if (res != NIFFS_OK) return res;
@@ -1246,7 +1246,7 @@ static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, nif
     --oid;
     niffs_object_hdr *ohdr = (niffs_object_hdr *)phdr;
     if (phdr->id.spix > 0 && (fs->buf[oid/8] & 1<<(oid&7)) == 0) {
-      // found a page with id not belonging to any object header => delete
+      // found a page with id not belonging to any object header
       NIFFS_DBG("check : pix %04x orphan by id oid:%04x delete\n", pix, oid+1);
       res = niffs_delete_page(fs, pix);
       if (res != NIFFS_OK) return res;
@@ -1255,8 +1255,9 @@ static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, nif
       NIFFS_DBG("check : pix %04x unfinished remove oid:%04x delete\n", pix, oid+1);
       res = niffs_delete_page(fs, pix);
       if (res != NIFFS_OK) return res;
-    } else if (phdr->id.spix == 0 && (sizeof(niffs_span_ix) < 4 && ohdr->len != NIFFS_UNDEF_LEN &&
-        ohdr->len > (1 << (8*sizeof(niffs_span_ix))) * fs->page_size)) {
+    } else if (phdr->id.spix == 0 &&
+        (((sizeof(niffs_span_ix) < 4 && ohdr->len != NIFFS_UNDEF_LEN && ohdr->len > (1 << (8*sizeof(niffs_span_ix))) * fs->page_size)) ||
+        ohdr->len > fs->sector_size * (fs->sectors-1))) {
       // found an object header page with crazy size
       NIFFS_DBG("check : pix %04x bad length oid:%04x delete\n", pix, oid+1);
       res = niffs_delete_page(fs, pix);
@@ -1419,6 +1420,42 @@ static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_p
   return res;
 }
 
+static int niffs_find_duplicate_obj_hdr_ids_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void *v_arg) {
+  (void)pix;
+  (void)v_arg;
+  if (_NIFFS_IS_FLAG_VALID(phdr) && !_NIFFS_IS_FREE(phdr) && !_NIFFS_IS_DELE(phdr)) {
+    if (phdr->id.spix == 0) {
+      // object header page
+      niffs_object_hdr *ohdr = (niffs_object_hdr *)phdr;
+      if (ohdr->len != NIFFS_UNDEF_LEN && ohdr->len > 0) {
+        // only mark those having a defined length > 0, this way we will remove all unfinished appends
+        // to clean file and unfinished deletions
+        niffs_obj_id oid = phdr->id.obj_id;
+        --oid;
+        if (fs->buf[oid/8] & 1<<(oid&7)) {
+          // id found before, got duplicate
+          NIFFS_DBG("  chck: pix %04x found duplicate obj hdr oid:%04x delete\n", pix, phdr->id.obj_id);
+          int res = niffs_delete_page(fs, pix);
+          if (res != NIFFS_OK) return res;
+
+        } else {
+          // id not found, mark it
+          fs->buf[oid/8] |= 1<<(oid&7);
+        }
+      }
+    }
+  }
+  return NIFFS_VIS_CONT;
+}
+
+static int niffs_find_duplicate_obj_hdr_ids(niffs *fs) {
+  memset(fs->buf, 0, fs->buf_len);
+  // map all ids taken by object headers, find duplicates
+  int res = niffs_traverse(fs, 0, 0, niffs_find_duplicate_obj_hdr_ids_v, 0);
+  if (res != NIFFS_VIS_END) return res;
+  return NIFFS_OK;
+}
+
 static int niffs_chk_movi_objhdr_pages(niffs *fs) {
   // clear buffer
   memset(fs->buf, 0, fs->buf_len);
@@ -1491,6 +1528,11 @@ int niffs_chk(niffs *fs) {
   //     or else deletes moving page if corresponding written page was found
   NIFFS_DBG("check : * finalize moving pages\n");
   res = niffs_chk_unfinished_movi_data_pages(fs);
+  if (res != NIFFS_OK) return res;
+
+  // fixes object headers with duplicate ids
+  NIFFS_DBG("check : * remove object headers with duplicate ids\n");
+  res = niffs_find_duplicate_obj_hdr_ids(fs);
   if (res != NIFFS_OK) return res;
 
   // fixes orphaned data pages by aborted file length update

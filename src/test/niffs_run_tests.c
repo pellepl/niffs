@@ -8,6 +8,8 @@
 #include "testrunner.h"
 #include "niffs_test_emul.h"
 
+#define NIFFS_DBG_TEST(...) //printf(__VA_ARGS__)
+
 static u32_t trand(void) {
   static u32_t seed = 0x12312112;
   srand(seed);
@@ -124,9 +126,15 @@ TEST(run_create_many_medium)
       }
     } else if (res == ERR_NIFFS_FULL) {
       niffs_emul_destroy_data(name);
+
+      niffs_emul_reset_data_cursor();
+      char *dname;
+      while ((dname = niffs_emul_get_next_data_name())) {
+        TEST_CHECK_EQ(niffs_emul_verify_file(&fs, dname), NIFFS_OK);
+      }
+
       niffs_emul_reset_data_cursor();
       int ix = 0;
-      char *dname;
       while ((dname = niffs_emul_get_next_data_name())) {
         ix++;
         if (((ix + fileno) % 5) == 0) {
@@ -186,9 +194,15 @@ TEST(run_create_many_large)
       }
     } else if (res == ERR_NIFFS_FULL) {
       niffs_emul_destroy_data(name);
+
+      niffs_emul_reset_data_cursor();
+      char *dname;
+      while ((dname = niffs_emul_get_next_data_name())) {
+        TEST_CHECK_EQ(niffs_emul_verify_file(&fs, dname), NIFFS_OK);
+      }
+
       niffs_emul_reset_data_cursor();
       int ix = 0;
-      char *dname;
       while ((dname = niffs_emul_get_next_data_name())) {
         ix++;
         if (((ix + fileno) % 2) == 0) {
@@ -247,9 +261,15 @@ TEST(run_create_huge)
       }
     } else if (res == ERR_NIFFS_FULL) {
       niffs_emul_destroy_data(name);
+
+      niffs_emul_reset_data_cursor();
+      char *dname;
+      while ((dname = niffs_emul_get_next_data_name())) {
+        TEST_CHECK_EQ(niffs_emul_verify_file(&fs, dname), NIFFS_OK);
+      }
+
       niffs_emul_reset_data_cursor();
       int ix = 0;
-      char *dname;
       while ((dname = niffs_emul_get_next_data_name())) {
         res = NIFFS_remove(&fs, dname);
         TEST_CHECK_EQ(res, NIFFS_OK);
@@ -271,6 +291,9 @@ TEST(run_create_huge)
 }
 TEST_END(run_create_huge)
 
+// loop:
+//  create random sized files until full
+//  when full, check current and remove some
 TEST(run_create_many_garbled)
 {
   int files = 100 * (fs.sectors - 1) * fs.pages_per_sector;
@@ -305,9 +328,15 @@ TEST(run_create_many_garbled)
       }
     } else if (res == ERR_NIFFS_FULL) {
       niffs_emul_destroy_data(name);
+
+      niffs_emul_reset_data_cursor();
+      char *dname;
+      while ((dname = niffs_emul_get_next_data_name())) {
+        TEST_CHECK_EQ(niffs_emul_verify_file(&fs, dname), NIFFS_OK);
+      }
+
       niffs_emul_reset_data_cursor();
       int ix = 0;
-      char *dname;
       while ((dname = niffs_emul_get_next_data_name())) {
         ix++;
         if (((ix + fileno) % 5) == 0) {
@@ -332,6 +361,10 @@ TEST(run_create_many_garbled)
 }
 TEST_END(run_create_many_garbled)
 
+// create constant file, never touched
+// loop:
+//  create random sized files until full
+//  when full, check current and remove some
 TEST(run_create_many_garbled_one_constant)
 {
   int files = 100 * (fs.sectors - 1) * fs.pages_per_sector;
@@ -369,9 +402,15 @@ TEST(run_create_many_garbled_one_constant)
       }
     } else if (res == ERR_NIFFS_FULL) {
       niffs_emul_destroy_data(name);
+
+      niffs_emul_reset_data_cursor();
+      char *dname;
+      while ((dname = niffs_emul_get_next_data_name())) {
+        TEST_CHECK_EQ(niffs_emul_verify_file(&fs, dname), NIFFS_OK);
+      }
+
       niffs_emul_reset_data_cursor();
       int ix = 0;
-      char *dname;
       while ((dname = niffs_emul_get_next_data_name())) {
         ix++;
         if (strcmp("constant", dname) == 0) continue;
@@ -397,6 +436,16 @@ TEST(run_create_many_garbled_one_constant)
 }
 TEST_END(run_create_many_garbled_one_constant)
 
+
+// aborted create, gc, rm test
+//
+// create constant file which is never removed
+// loop:
+//  create random sized files until full
+//  when full, check current and remove some
+//  abort sporadically
+//  when aborted, run check
+//  if check gives overflow, remove all but constant
 TEST(run_create_many_garbled_one_constant_aborted)
 {
   int files = 500 * (fs.sectors - 1) * fs.pages_per_sector;
@@ -407,25 +456,22 @@ TEST(run_create_many_garbled_one_constant_aborted)
   TEST_CHECK_EQ(niffs_emul_create_file(&fs, "constant", mlen/2), NIFFS_OK);
 
   while (fileno < files) {
-    u8_t data_freed = 0;
+    u8_t data_already_freed = 0;
     char name[NIFFS_NAME_LEN];
     sprintf(name, "file%i", fileno);
     u32_t len = 1 + (trand() % mlen);
     u8_t *data = niffs_emul_create_data(name, len);
 
-    printf("create %s %i bytes\n", name, len);
+    NIFFS_DBG_TEST("create %s %i bytes\n", name, len);
+
+    // random power loss simulation
     int abort = (trand() % 100) < 10;
     if (abort) {
       u32_t abort_len = 1 + (trand() % len );
       niffs_emul_set_write_byte_limit(abort_len);
-      printf("abort after %i bytes (of %i)\n", abort_len, len);
+      NIFFS_DBG_TEST("abort after %i bytes (of %i)\n", abort_len, len);
     } else {
       niffs_emul_set_write_byte_limit(0);
-    }
-
-    if (fileno == 14192) {
-      // TODO
-      //__dbg = 1;
     }
 
     // try creating
@@ -450,6 +496,7 @@ TEST(run_create_many_garbled_one_constant_aborted)
     } else {
       res = fd;
     }
+
     if (res == NIFFS_OK) {
       fileno++;
       if ((fileno % (files/50))==0) {
@@ -457,16 +504,16 @@ TEST(run_create_many_garbled_one_constant_aborted)
         fflush(stdout);
       }
     } else if (res == ERR_NIFFS_FULL) {
-      // full, verify all and remove
+      // full, verify all and remove some
       niffs_emul_destroy_data(name);
-      data_freed = 1;
-      printf("full on %s\n", name);
+      data_already_freed = 1;
+      NIFFS_DBG_TEST("full on %s\n", name);
 
-      printf("verify when full\n");
+      NIFFS_DBG_TEST("verify when full\n");
       niffs_emul_reset_data_cursor();
       char *dname;
       while ((dname = niffs_emul_get_next_data_name())) {
-        printf("  .. check %s\n", dname);
+        NIFFS_DBG_TEST("  .. check %s\n", dname);
         res = niffs_emul_verify_file(&fs, dname);
         if (res != NIFFS_OK) {
           NIFFS_dump(&fs);
@@ -474,26 +521,59 @@ TEST(run_create_many_garbled_one_constant_aborted)
         TEST_CHECK_EQ(res, NIFFS_OK);
       }
 
-      niffs_emul_reset_data_cursor();
+      int deleted = 0;
       int ix = 0;
-      while (res == NIFFS_OK && (dname = niffs_emul_get_next_data_name())) {
-        ix++;
-        if (strcmp("constant", dname) == 0) continue;
-        if (((ix + fileno) % 3) == 0) {
-          printf("remove %s\n", dname);
-          res = NIFFS_remove(&fs, dname);
-          if (res != ERR_NIFFS_TEST_ABORTED_WRITE) {
-            TEST_CHECK_EQ(res, NIFFS_OK);
+      int runs = 0;
+      while (deleted == 0) {
+        niffs_emul_reset_data_cursor();
+        while (res == NIFFS_OK && (dname = niffs_emul_get_next_data_name())) {
+          ix++;
+          if (strcmp("constant", dname) == 0) continue;
+          if (((ix + fileno) % MAX(1, 3-runs)) == 0) {
+            NIFFS_DBG_TEST("remove %s\n", dname);
+            res = NIFFS_remove(&fs, dname);
+            if (res != ERR_NIFFS_TEST_ABORTED_WRITE) {
+              TEST_CHECK_EQ(res, NIFFS_OK);
+            }
+            niffs_emul_destroy_data(dname);
+            deleted++;
           }
-          niffs_emul_destroy_data(dname);
+        }
+        runs++;
+        if (runs == 100) {
+          // too many remove runs, major failure
+          niffs_DIR d;
+          struct niffs_dirent e;
+          struct niffs_dirent *pe = &e;
+
+          NIFFS_DBG_TEST("niffs contents\n");
+          NIFFS_opendir(&fs, "/", &d);
+          while ((pe = NIFFS_readdir(&d, pe))) {
+            NIFFS_DBG_TEST(" * %s %i  oid:%04x  pix:%04x\n", pe->name, pe->size, pe->obj_id, pe->pix);
+            if (pe->size > mlen || !(strncmp("file", pe->name, 4) == 0 || strncmp("const", pe->name, 5)== 0)) {
+              NIFFS_DBG_TEST("found crap file pix %04x  length %i  objid %04x  name %s\n", pe->pix, pe->size, pe->obj_id, pe->name);
+              niffs_emul_dump_pix(&fs, pe->pix);
+              TEST_CHECK(0);
+            }
+          }
+          NIFFS_closedir(&d);
+
+          NIFFS_DBG_TEST("ram contents\n");
+          niffs_emul_reset_data_cursor();
+          while (res == NIFFS_OK && (dname = niffs_emul_get_next_data_name())) {
+            NIFFS_DBG_TEST(" * %s\n", dname);
+          }
+
+          NIFFS_dump(&fs);
+          TEST_CHECK(0);
         }
       }
     }
 
     if (res == ERR_NIFFS_TEST_ABORTED_WRITE) {
       // aborted, check consistency
-      printf("aborted on %s\n", name);
-      if (!data_freed) {
+      NIFFS_DBG_TEST("aborted on %s\n", name);
+      if (!data_already_freed) {
         niffs_emul_destroy_data(name);
       }
       TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
@@ -501,7 +581,7 @@ TEST(run_create_many_garbled_one_constant_aborted)
       if (res == ERR_NIFFS_OVERFLOW) {
         // crammed, remove all but constant
         TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
-        printf("niffs overflow %s\n", name);
+        NIFFS_DBG_TEST("niffs overflow %s\n", name);
         niffs_emul_set_write_byte_limit(0);
         niffs_emul_reset_data_cursor();
         int ix = 0;
@@ -509,7 +589,7 @@ TEST(run_create_many_garbled_one_constant_aborted)
         while ((dname = niffs_emul_get_next_data_name())) {
           ix++;
           if (strcmp("constant", dname) == 0) continue;
-          printf("remove %s\n", dname);
+          NIFFS_DBG_TEST("remove %s\n", dname);
           res = NIFFS_remove(&fs, dname);
           TEST_CHECK_EQ(res, NIFFS_OK);
           niffs_emul_destroy_data(dname);
@@ -528,10 +608,10 @@ TEST(run_create_many_garbled_one_constant_aborted)
       // check all files after cleanup
       niffs_emul_reset_data_cursor();
       char *dname;
-      printf("verify after check\n");
+      NIFFS_DBG_TEST("verify after check\n");
 
       while ((dname = niffs_emul_get_next_data_name())) {
-        printf("  .. check %s\n", dname);
+        NIFFS_DBG_TEST("  .. check %s\n", dname);
         res = niffs_emul_verify_file(&fs, dname);
         if (res != NIFFS_OK) {
           NIFFS_dump(&fs);
@@ -541,7 +621,7 @@ TEST(run_create_many_garbled_one_constant_aborted)
     }
 
     // check for garbage files
-    printf("find crap\n");
+    NIFFS_DBG_TEST("find crap\n");
     niffs_DIR d;
     struct niffs_dirent e;
     struct niffs_dirent *pe = &e;
@@ -549,13 +629,12 @@ TEST(run_create_many_garbled_one_constant_aborted)
     NIFFS_opendir(&fs, "/", &d);
     while ((pe = NIFFS_readdir(&d, pe))) {
       if (pe->size > mlen || !(strncmp("file", pe->name, 4) == 0 || strncmp("const", pe->name, 5)== 0)) {
-        printf("found crap file pix %04x  length %i  objid %04x  name %s\n", pe->pix, pe->size, pe->obj_id, pe->name);
+        NIFFS_DBG_TEST("found crap file pix %04x  length %i  objid %04x  name %s\n", pe->pix, pe->size, pe->obj_id, pe->name);
         niffs_emul_dump_pix(&fs, pe->pix);
         TEST_CHECK(0);
       }
     }
     NIFFS_closedir(&d);
-
 
     if (res != NIFFS_OK) {
       NIFFS_dump(&fs);
@@ -563,25 +642,332 @@ TEST(run_create_many_garbled_one_constant_aborted)
 
     TEST_CHECK_EQ(res, NIFFS_OK);
 
+    // check erase span
     u32_t era_min, era_max;
     niffs_emul_get_sector_erase_count_info(&fs, &era_min, &era_max);
     if (era_max > 0) {
-      printf("ERA INF min:%i max:%i span:%i\n", era_min, era_max, ((era_max - era_min)*100)/era_max);
+      NIFFS_DBG_TEST("ERA INF min:%i max:%i span:%i\n", era_min, era_max, ((era_max - era_min)*100)/era_max);
       if (era_max > 100) TEST_CHECK(((era_max - era_min)*100)/era_max < 50);
     }
-  }
+  } // main loop
 
-  printf("verify final\n");
+  NIFFS_DBG_TEST("verify final\n");
   niffs_emul_reset_data_cursor();
   char *dname;
   while ((dname = niffs_emul_get_next_data_name())) {
-    printf("  .. check %s\n", dname);
+    NIFFS_DBG_TEST("  .. check %s\n", dname);
     TEST_CHECK_EQ(niffs_emul_verify_file(&fs, dname), NIFFS_OK);
   }
 
   printf("\n");
+
   return TEST_RES_OK;
 }
 TEST_END(run_create_many_garbled_one_constant_aborted)
+
+// aborted create, gc, rm, append test
+//
+// create constant file which is never removed
+// loop:
+//  if less than 5 files, create files, random sized
+//  if more or equal, modify/append files until full
+//  sometimes, modify constant file, one page only
+//  when full, remove one
+//  abort sporadically
+//  when aborted, run check
+//  if check gives overflow, remove all but constant
+TEST(run_create_modify_append_some_garbled_one_constant_aborted)
+{
+  int run = 0;
+  int runs = 500 * (fs.sectors - 1) * fs.pages_per_sector;
+  int fileno = 0;
+  int active_files = 0;
+  int res;
+  u32_t mlen = _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * fs.pages_per_sector * fs.sectors / 8;
+
+  u32_t const_len =  _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * 3;
+  TEST_CHECK_EQ(niffs_emul_create_file(&fs, "constant", const_len), NIFFS_OK);
+  char name[NIFFS_NAME_LEN];
+
+  while (run < runs) {
+    NIFFS_DBG_TEST("run#%i\n", run);
+    u8_t data_already_freed = 0;
+    u8_t create_else_mod = 0;
+
+    if (active_files < 5) {
+
+      // create file
+
+      create_else_mod = 1;
+      sprintf(name, "file%i", fileno);
+      u32_t len = 1 + (trand() % mlen);
+      u8_t *data = niffs_emul_create_data(name, len);
+      NIFFS_DBG_TEST("create %s %i bytes\n", name, len);
+
+      // random power loss simulation
+      int abort = (trand() % 100) < 10;
+      if (abort) {
+        u32_t abort_len = 1 + (trand() % len );
+        niffs_emul_set_write_byte_limit(abort_len);
+        NIFFS_DBG_TEST("abort after %i bytes (of %i)\n", abort_len, len);
+      } else {
+        niffs_emul_set_write_byte_limit(0);
+      }
+
+      // try creating
+      int fd = NIFFS_open(&fs, name, NIFFS_O_CREAT | NIFFS_O_EXCL | NIFFS_O_RDWR, 0);
+      if (fd >= 0) {
+        res = NIFFS_write(&fs, fd, data, len);
+        if (res == ERR_NIFFS_FULL) {
+          int res2 = NIFFS_fremove(&fs, fd);
+          if (res2 == ERR_NIFFS_TEST_ABORTED_WRITE) {
+            res = res2;
+            (void)NIFFS_close(&fs, fd);
+          } else {
+            TEST_CHECK_EQ(res2, NIFFS_OK);
+          }
+        } else if (res == ERR_NIFFS_TEST_ABORTED_WRITE) {
+          (void)NIFFS_close(&fs, fd);
+        } else {
+          TEST_CHECK_EQ(res, len);
+          (void)NIFFS_close(&fs, fd);
+          res = NIFFS_OK;
+        }
+      } else {
+        res = fd;
+      }
+
+      if (res == NIFFS_OK) {
+        fileno++;
+        active_files++;
+      }
+
+    } else {
+
+      // find file and modify/append
+
+      create_else_mod = 0;
+      u32_t len;
+      u32_t offs;
+      u32_t flen;
+      int fd;
+      if (active_files == 0 || trand() % 100 < 20) {
+        // select constant file
+        strcpy(name, "constant");
+        NIFFS_DBG_TEST("select %s\n", name);
+
+        fd = NIFFS_open(&fs, name, NIFFS_O_RDWR, 0);
+        if (fd < 0) res = fd;
+        TEST_CHECK_EQ(res, NIFFS_OK);
+        niffs_stat s;
+        res = NIFFS_fstat(&fs, fd, &s);
+        TEST_CHECK_EQ(res, NIFFS_OK);
+        TEST_CHECK_EQ(s.size, const_len);
+        len = 1 + (trand() % (1 + s.size/3));
+        offs = trand() % (s.size - len);
+        NIFFS_ASSERT(len+offs < s.size);
+        flen = s.size;
+      } else {
+        // select arbitrary other file
+        char *dname;
+        u32_t selected = 0;
+        u32_t ix = 0;
+        u32_t sel_ix = trand() % active_files;
+        while (selected == 0) {
+          niffs_emul_reset_data_cursor();
+          while (res == NIFFS_OK && (dname = niffs_emul_get_next_data_name())) {
+            if (strcmp("constant", dname) == 0) continue;
+            if (ix >= sel_ix) {
+              selected = 1;
+              break;
+            }
+            ix++;
+          }
+        }
+
+        strcpy(name, dname);
+        NIFFS_DBG_TEST("select %s\n", name);
+
+        fd = NIFFS_open(&fs, name, NIFFS_O_RDWR, 0);
+        if (fd < 0) res = fd;
+        TEST_CHECK_EQ(res, NIFFS_OK);
+        niffs_stat s;
+        res = NIFFS_fstat(&fs, fd, &s);
+        TEST_CHECK_EQ(res, NIFFS_OK);
+        len = 1 + (trand() % (1+s.size/3));
+        offs = s.size / 2 + trand() % (1+s.size / 2);
+        flen = s.size;
+      }
+
+      NIFFS_DBG_TEST("modify %s %i bytes offs %i / %i\n", name, len, offs, flen);
+
+      res = NIFFS_lseek(&fs, fd, offs, NIFFS_SEEK_SET);
+      TEST_CHECK_EQ(res, NIFFS_OK);
+
+      u8_t *mdata;
+      if (strcmp("constant", name) == 0) {
+        u32_t dummy;
+        mdata = niffs_emul_get_data("constant", &dummy);
+        mdata += offs;
+      } else {
+        mdata = malloc(len);
+      }
+      NIFFS_ASSERT(mdata);
+      memrand(mdata, len, run*0xead1c9f1);
+      res = NIFFS_write(&fs, fd, mdata, len);
+      if (strcmp("constant", name)) {
+        free(mdata);
+      }
+
+      (void)NIFFS_close(&fs, fd);
+      if (res != ERR_NIFFS_FULL && res != ERR_NIFFS_TEST_ABORTED_WRITE) {
+        TEST_CHECK_EQ(res, len);
+        res = NIFFS_OK;
+      }
+    }
+
+    // handle problems
+
+    if (res == ERR_NIFFS_FULL) {
+      res = NIFFS_OK;
+      data_already_freed = 1;
+      NIFFS_DBG_TEST("full on %s, remove\n", name);
+      if (create_else_mod) niffs_emul_destroy_data(name);
+
+      int deleted = 0;
+      int ix = 0;
+      int remove_runs = 0;
+      char *dname;
+      while (deleted == 0) {
+        niffs_emul_reset_data_cursor();
+        while (res == NIFFS_OK && deleted == 0 && (dname = niffs_emul_get_next_data_name())) {
+          ix++;
+          if (strcmp("constant", dname) == 0) continue;
+          if (((ix + fileno) % MAX(1, 3-remove_runs)) == 0) {
+            NIFFS_DBG_TEST("remove %s\n", dname);
+            res = NIFFS_remove(&fs, dname);
+            if (res != ERR_NIFFS_TEST_ABORTED_WRITE) {
+              TEST_CHECK_EQ(res, NIFFS_OK);
+            }
+            niffs_emul_destroy_data(dname);
+            deleted++;
+            active_files--;
+          }
+        }
+        remove_runs++;
+        if (remove_runs == 100) {
+          // too many remove runs, major failure
+          niffs_DIR d;
+          struct niffs_dirent e;
+          struct niffs_dirent *pe = &e;
+
+          NIFFS_DBG_TEST("niffs contents\n");
+          NIFFS_opendir(&fs, "/", &d);
+          while ((pe = NIFFS_readdir(&d, pe))) {
+            NIFFS_DBG_TEST(" * %s %i  oid:%04x  pix:%04x\n", pe->name, pe->size, pe->obj_id, pe->pix);
+            if (pe->size > mlen || !(strncmp("file", pe->name, 4) == 0 || strncmp("const", pe->name, 5)== 0)) {
+              NIFFS_DBG_TEST("found crap file pix %04x  length %i  objid %04x  name %s\n", pe->pix, pe->size, pe->obj_id, pe->name);
+              niffs_emul_dump_pix(&fs, pe->pix);
+              TEST_CHECK(0);
+            }
+          }
+          NIFFS_closedir(&d);
+
+          NIFFS_DBG_TEST("ram contents\n");
+          niffs_emul_reset_data_cursor();
+          while (res == NIFFS_OK && (dname = niffs_emul_get_next_data_name())) {
+            NIFFS_DBG_TEST(" * %s\n", dname);
+          }
+
+          NIFFS_dump(&fs);
+          TEST_CHECK(0);
+        }
+      }
+    }
+
+    if (res == ERR_NIFFS_TEST_ABORTED_WRITE) {
+      // aborted, check consistency
+      NIFFS_DBG_TEST("aborted on %s\n", name);
+      if (!data_already_freed && create_else_mod) {
+        niffs_emul_destroy_data(name);
+      }
+      TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
+      res = NIFFS_chk(&fs);
+      if (res == ERR_NIFFS_OVERFLOW) {
+        // crammed, remove all but constant
+        TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+        NIFFS_DBG_TEST("niffs overflow %s\n", name);
+        niffs_emul_set_write_byte_limit(0);
+        niffs_emul_reset_data_cursor();
+        int ix = 0;
+        char *dname;
+        while ((dname = niffs_emul_get_next_data_name())) {
+          ix++;
+          if (strcmp("constant", dname) == 0) continue;
+          NIFFS_DBG_TEST("remove %s\n", dname);
+          res = NIFFS_remove(&fs, dname);
+          TEST_CHECK_EQ(res, NIFFS_OK);
+          niffs_emul_destroy_data(dname);
+        }
+        active_files = 0;
+        TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
+        res = NIFFS_chk(&fs);
+      }
+      if (res != NIFFS_OK) {
+        NIFFS_dump(&fs);
+      }
+      TEST_CHECK_EQ(res, NIFFS_OK);
+
+      TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+      TEST_CHECK_EQ(niffs_emul_remove_all_zerosized_files(&fs), NIFFS_OK);
+    }
+
+    // check "constant" length
+    niffs_stat s;
+    TEST_CHECK_EQ(NIFFS_stat(&fs, "constant", &s), NIFFS_OK);
+    TEST_CHECK_EQ(s.size, const_len);
+
+    // check for garbage files
+    niffs_DIR d;
+    struct niffs_dirent e;
+    struct niffs_dirent *pe = &e;
+
+    NIFFS_opendir(&fs, "/", &d);
+    while ((pe = NIFFS_readdir(&d, pe))) {
+      if (!(strncmp("file", pe->name, 4) == 0 || strncmp("const", pe->name, 5)== 0)) {
+        NIFFS_DBG_TEST("found crap file pix %04x  length %i  objid %04x  name %s\n", pe->pix, pe->size, pe->obj_id, pe->name);
+        niffs_emul_dump_pix(&fs, pe->pix);
+        TEST_CHECK(0);
+      }
+    }
+    NIFFS_closedir(&d);
+
+    if (res != NIFFS_OK) {
+      NIFFS_dump(&fs);
+    }
+
+    TEST_CHECK_EQ(res, NIFFS_OK);
+
+    // check erase span
+    u32_t era_min, era_max;
+    niffs_emul_get_sector_erase_count_info(&fs, &era_min, &era_max);
+    if (era_max > 0) {
+      NIFFS_DBG_TEST("ERA INF min:%i max:%i span:%i\n", era_min, era_max, ((era_max - era_min)*100)/era_max);
+      if (era_max > 100) TEST_CHECK(((era_max - era_min)*100)/era_max < 50);
+    }
+    run++;
+    if ((run % (runs/50))==0) {
+      printf(".");
+      fflush(stdout);
+    }
+  } // main loop
+
+  TEST_CHECK_EQ(niffs_emul_verify_file(&fs, "constant"), NIFFS_OK);
+
+  printf("\n");
+
+  return TEST_RES_OK;
+}
+TEST_END(run_create_modify_append_some_garbled_one_constant_aborted)
 
 SUITE_END(niffs_run_tests)

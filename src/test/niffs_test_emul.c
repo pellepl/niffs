@@ -394,8 +394,6 @@ int niffs_emul_verify_file_against_data(niffs *fs, char *name, u8_t *data) {
     if (memcmp(buf, &data[offs], rlen) != 0) {
       u32_t ix;
       u32_t mismatch_ix;
-      memdump(buf, sizeof(buf));
-      memdump(&data[offs < 32 ? 0 : offs-32], sizeof(buf));
       for (ix = 0; ix < rlen; ix++) {
         if (buf[ix] != data[offs+ix]) {
           mismatch_ix = ix;
