@@ -314,6 +314,31 @@ TEST(sys_list_dir)
 }
 TEST_END(sys_list_dir)
 
+TEST(sys_write) {
+  int res;
+  int fd;
+  fd = NIFFS_open(&fs, "testfile", NIFFS_O_RDWR | NIFFS_O_CREAT | NIFFS_O_TRUNC | NIFFS_O_APPEND, 0);
+  TEST_CHECK_GE(fd, 0);
+
+  u8_t test_hdr[4] = {1,2,3,4};
+  res = NIFFS_write(&fs, fd, (u8_t *)&test_hdr, sizeof(test_hdr));
+  TEST_CHECK_EQ(res, (int)sizeof(test_hdr));
+
+  u8_t test_data[8+3] = {0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x20,0x21,0x22};
+  u8_t pin;
+  for (pin = 0; pin < 24; pin++) {
+    u8_t *cfg = (u8_t *)test_data;
+    res = NIFFS_write(&fs, fd, cfg, sizeof(test_data));
+    TEST_CHECK_EQ(res, (int)sizeof(test_data));
+  }
+  TEST_CHECK_EQ(NIFFS_close(&fs, fd), NIFFS_OK);;
+
+  return TEST_RES_OK;
+}
+TEST_END(sys_write)
+
+
+
 TEST(sys_simultaneous_write) {
   int res;
   res = NIFFS_creat(&fs, "simul1", 0);

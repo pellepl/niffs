@@ -8,6 +8,17 @@
 #include "niffs.h"
 #include "niffs_internal.h"
 
+int NIFFS_info(niffs *fs, s32_t *total, s32_t *used, u8_t *overflow) {
+  if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
+  if (total == 0 || used == 0 || overflow == 0) return ERR_NIFFS_NULL_PTR;
+
+  *total = (fs->sectors-1) * fs->pages_per_sector * _NIFFS_SPIX_2_PDATA_LEN(fs, 1);
+  *used = ((fs->sectors) * fs->pages_per_sector - (fs->free_pages + fs->dele_pages)) * _NIFFS_SPIX_2_PDATA_LEN(fs, 1);
+  *overflow = fs->free_pages < fs->pages_per_sector;
+  return NIFFS_OK;
+}
+
+
 int NIFFS_creat(niffs *fs, char *name, niffs_mode mode) {
   (void)mode;
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;

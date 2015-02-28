@@ -28,6 +28,21 @@ TEST(func_dump) {
 } TEST_END(func_dump)
 #endif
 
+TEST(func_info) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+  s32_t tot, used;
+  u8_t of;
+  TEST_CHECK_EQ(NIFFS_info(&fs, &tot, &used, &of), NIFFS_OK);
+  TEST_CHECK_GE(fs.sector_size * fs.sectors, tot);
+  TEST_CHECK_LE(fs.sector_size * fs.sectors/2, tot);
+  TEST_CHECK_GT(tot, used);
+  TEST_CHECK_GT(tot, fs.sector_size);
+  TEST_CHECK_EQ(used, 0);
+  return TEST_RES_OK;
+} TEST_END(func_info)
+
 TEST(func_init_virgin) {
   return TEST_RES_OK;
 } TEST_END(func_init_virgin)

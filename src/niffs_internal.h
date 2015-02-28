@@ -131,6 +131,9 @@
 
 #define _NIFFS_SECTOR_2_ADDR(_fs, _s) \
   ((_fs)->phys_addr + (_fs)->sector_size * (_s))
+#define _NIFFS_ADDR_2_SECTOR(_fs, _addr) \
+  (((u8_t *)(_addr) - (_fs)->phys_addr) / (_fs)->sector_size)
+
 #define _NIFFS_PIX_2_SECTOR(_fs, _pix) \
   ((_pix) / (_fs)->pages_per_sector)
 #define _NIFFS_PIX_IN_SECTOR(_fs, _pix) \
@@ -142,9 +145,13 @@
   sizeof(niffs_sector_hdr) + \
   _NIFFS_PIX_IN_SECTOR(_fs, _pix) * fs->page_size \
   )
+
+#if 0
 #define _NIFFS_ADDR_2_PIX(_fs, _addr) (\
-  ((u8_t *)(_addr) - (_fs)->phys_addr) / (_fs)->page_size \
+  (((u8_t *)(_addr) - _NIFFS_ADDR_2_SECTOR(_fs, _addr) * ((_fs)->sector_size) + sizeof(niffs_sector_hdr)) / (_fs)->page_size) + \
+  _NIFFS_ADDR_2_SECTOR(_fs, _addr) * (_fs)->pages_per_sector \
   )
+#endif
 
 #define _NIFFS_SPIX_2_PDATA_LEN(_fs, _spix) \
   ((_fs)->page_size - sizeof(niffs_page_hdr) - ((_spix) == 0 ? sizeof(niffs_object_hdr) : 0))
@@ -198,14 +205,15 @@ typedef struct {
 
 typedef int (* niffs_visitor_f)(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void *v_arg);
 
+#ifdef NIFFS_TEST
 TESTATIC int niffs_find_free_id(niffs *fs, niffs_obj_id *id, char *conflict_name);
 TESTATIC int niffs_find_free_page(niffs *fs, niffs_page_ix *pix, u32_t excl_sector);
 TESTATIC int niffs_find_page(niffs *fs, niffs_page_ix *pix, niffs_obj_id oid, niffs_span_ix spix, niffs_page_ix start_pix);
 TESTATIC int niffs_erase_sector(niffs *fs, u32_t sector_ix);
-TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix);
 TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix, u8_t *data, u32_t len, niffs_flag force_flag);
 TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, u8_t *data, u32_t len);
 TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr);
+#endif
 
 int niffs_traverse(niffs *fs, niffs_page_ix pix_start, niffs_page_ix pix_end, niffs_visitor_f v, void *v_arg);
 int niffs_get_filedesc(niffs *fs, int fd_ix, niffs_file_desc **fd);

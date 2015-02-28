@@ -33,42 +33,42 @@
 
 
 #define NIFFS_OK                            0
-#define ERR_NIFFS_BAD_CONF                  -1
-#define ERR_NIFFS_NOT_A_FILESYSTEM          -2
-#define ERR_NIFFS_BAD_SECTOR                -3
-#define ERR_NIFFS_DELETING_FREE_PAGE        -4
-#define ERR_NIFFS_DELETING_DELETED_PAGE     -5
-#define ERR_NIFFS_MOVING_FREE_PAGE          -6
-#define ERR_NIFFS_MOVING_DELETED_PAGE       -7
-#define ERR_NIFFS_MOVING_TO_UNFREE_PAGE     -8
-#define ERR_NIFFS_MOVING_TO_SAME_PAGE       -9
-#define ERR_NIFFS_MOVING_BAD_FLAG           -10
-#define ERR_NIFFS_NO_FREE_PAGE              -11
-#define ERR_NIFFS_SECTOR_UNFORMATTABLE      -12
-#define ERR_NIFFS_NULL_PTR                  -13
-#define ERR_NIFFS_NO_FREE_ID                -14
-#define ERR_NIFFS_WR_PHDR_UNFREE_PAGE       -15
-#define ERR_NIFFS_WR_PHDR_BAD_ID            -16
-#define ERR_NIFFS_NAME_CONFLICT             -17
-#define ERR_NIFFS_FULL                      -18
-#define ERR_NIFFS_OUT_OF_FILEDESCS          -19
-#define ERR_NIFFS_FILE_NOT_FOUND            -20
-#define ERR_NIFFS_FILEDESC_CLOSED           -21
-#define ERR_NIFFS_FILEDESC_BAD              -22
-#define ERR_NIFFS_INCOHERENT_ID             -23
-#define ERR_NIFFS_PAGE_NOT_FOUND            -24
-#define ERR_NIFFS_END_OF_FILE               -25
-#define ERR_NIFFS_MODIFY_BEYOND_FILE        -26
-#define ERR_NIFFS_TRUNCATE_BEYOND_FILE      -27
-#define ERR_NIFFS_NO_GC_CANDIDATE           -28
-#define ERR_NIFFS_PAGE_DELETED              -29
-#define ERR_NIFFS_PAGE_FREE                 -30
-#define ERR_NIFFS_MOUNTED                   -31
-#define ERR_NIFFS_NOT_MOUNTED               -32
-#define ERR_NIFFS_NOT_WRITABLE              -33
-#define ERR_NIFFS_NOT_READABLE              -34
-#define ERR_NIFFS_FILE_EXISTS               -35
-#define ERR_NIFFS_OVERFLOW                  -36
+#define ERR_NIFFS_BAD_CONF                  -11001
+#define ERR_NIFFS_NOT_A_FILESYSTEM          -11002
+#define ERR_NIFFS_BAD_SECTOR                -11003
+#define ERR_NIFFS_DELETING_FREE_PAGE        -11004
+#define ERR_NIFFS_DELETING_DELETED_PAGE     -11005
+#define ERR_NIFFS_MOVING_FREE_PAGE          -11006
+#define ERR_NIFFS_MOVING_DELETED_PAGE       -11007
+#define ERR_NIFFS_MOVING_TO_UNFREE_PAGE     -11008
+#define ERR_NIFFS_MOVING_TO_SAME_PAGE       -11009
+#define ERR_NIFFS_MOVING_BAD_FLAG           -11010
+#define ERR_NIFFS_NO_FREE_PAGE              -11011
+#define ERR_NIFFS_SECTOR_UNFORMATTABLE      -11012
+#define ERR_NIFFS_NULL_PTR                  -11013
+#define ERR_NIFFS_NO_FREE_ID                -11014
+#define ERR_NIFFS_WR_PHDR_UNFREE_PAGE       -11015
+#define ERR_NIFFS_WR_PHDR_BAD_ID            -11016
+#define ERR_NIFFS_NAME_CONFLICT             -11017
+#define ERR_NIFFS_FULL                      -11018
+#define ERR_NIFFS_OUT_OF_FILEDESCS          -11019
+#define ERR_NIFFS_FILE_NOT_FOUND            -11020
+#define ERR_NIFFS_FILEDESC_CLOSED           -11021
+#define ERR_NIFFS_FILEDESC_BAD              -11022
+#define ERR_NIFFS_INCOHERENT_ID             -11023
+#define ERR_NIFFS_PAGE_NOT_FOUND            -11024
+#define ERR_NIFFS_END_OF_FILE               -11025
+#define ERR_NIFFS_MODIFY_BEYOND_FILE        -11026
+#define ERR_NIFFS_TRUNCATE_BEYOND_FILE      -11027
+#define ERR_NIFFS_NO_GC_CANDIDATE           -11028
+#define ERR_NIFFS_PAGE_DELETED              -11029
+#define ERR_NIFFS_PAGE_FREE                 -11030
+#define ERR_NIFFS_MOUNTED                   -11031
+#define ERR_NIFFS_NOT_MOUNTED               -11032
+#define ERR_NIFFS_NOT_WRITABLE              -11033
+#define ERR_NIFFS_NOT_READABLE              -11034
+#define ERR_NIFFS_FILE_EXISTS               -11035
+#define ERR_NIFFS_OVERFLOW                  -11036
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
 typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);
@@ -130,6 +130,7 @@ typedef struct {
 
 /**
  * Initializes and configures the file system
+ * @param fs            the file system struct
  * TODO
  */
 int NIFFS_init(niffs *fs,
@@ -149,6 +150,17 @@ int NIFFS_init(niffs *fs,
  * Mounts the filesystem
  */
 int NIFFS_mount(niffs *fs);
+
+/**
+ * Returns some general info
+ * @param fs            the file system struct
+ * @param total         will be populated with total amount of bytes in filesystem
+ * @param used          will be populated with used bytes in filesystem
+ * @param overflow      if !0, this means you should delete some files and run a check.
+ *                      This can happen if filesystem loses power repeatedly during
+ *                      garbage collection or check.
+ */
+int NIFFS_info(niffs *fs, s32_t *total, s32_t *used, u8_t *overflow);
 
 /**
  * Creates a new file.

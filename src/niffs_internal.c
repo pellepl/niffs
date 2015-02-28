@@ -3,6 +3,7 @@
 static int niffs_ensure_free_pages(niffs *fs, u32_t pages);
 static int niffs_setup(niffs *fs);
 static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_page_ix *dst_pix);
+TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix);
 
 //////////////////////////////////// BASE ////////////////////////////////////
 
@@ -343,14 +344,16 @@ TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr
   return res;
 }
 
+#ifdef NIFFS_TEST
 TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr) {
   return niffs_write_page(fs, pix, phdr, 0, 0);
 }
+#endif
 
 /////////////////////////////////// FILE /////////////////////////////////////
 
 int niffs_create(niffs *fs, char *name) {
-  niffs_obj_id oid;
+  niffs_obj_id oid = 0;
   niffs_page_ix pix;
   int res;
 
@@ -601,6 +604,7 @@ int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
   }
 
   niffs_object_hdr *new_ohdr = 0;
+  niffs_page_ix new_ohdr_pix = 0;
 
   // WRITE DATA
   // operate on per page basis
@@ -659,6 +663,7 @@ int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
       niffs_page_ix new_pix;
       res = niffs_find_free_page(fs, &new_pix, NIFFS_EXCL_SECT_NONE);
       if (res != NIFFS_OK) return res;
+      NIFFS_DBG("append: pix %04x is free\n", new_pix);
 
       // modify page
       if (_NIFFS_OFFS_2_SPIX(fs, file_offs + data_offs) == 0) {
@@ -674,6 +679,8 @@ int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
         new_ohdr_data->len = NIFFS_UNDEF_LEN;
         new_ohdr_data->phdr.flag = _NIFFS_FLAG_CLEAN;
         new_ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, new_pix);
+        new_ohdr_pix = new_pix;
+        NIFFS_DBG("append: new obj hdr pix %04x\n", new_pix);
         res = niffs_write_page(fs, new_pix, &new_ohdr_data->phdr, &fs->buf[sizeof(niffs_page_hdr)],
             _NIFFS_SPIX_2_PDATA_LEN(fs, 1));
         if (res != NIFFS_OK) return res;
@@ -689,6 +696,8 @@ int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
         memcpy(&fs->buf[ _NIFFS_OFFS_2_PDATA_OFFS(fs, file_offs + data_offs)],
             src, avail);
         NIFFS_DBG("append: pix %04x modify page oid:%04x spix:%i len:%i\n", src_pix, fd->obj_id, (u32_t)_NIFFS_OFFS_2_SPIX(fs, file_offs + data_offs), avail);
+        NIFFS_DBG("append: new pix %04x\n", new_pix);
+
         // move page, rewrite data
         res = niffs_move_page(fs, src_pix, new_pix, fs->buf, _NIFFS_SPIX_2_PDATA_LEN(fs, 1), _NIFFS_FLAG_WRITTEN);
         if (res != NIFFS_OK) return res;
@@ -736,7 +745,7 @@ int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
     // check if object header moved
     if (new_ohdr != orig_ohdr) {
       niffs_page_ix old_obj_pix = fd->obj_pix;
-      niffs_inform_page_movement(fs, old_obj_pix, _NIFFS_ADDR_2_PIX(fs, new_ohdr));
+      niffs_inform_page_movement(fs, old_obj_pix, new_ohdr_pix);
       // .. and remove old
       res = niffs_delete_page(fs, old_obj_pix);
       if (res != NIFFS_OK) return res;
@@ -1728,7 +1737,7 @@ void NIFFS_dump(niffs *fs) {
   u32_t tot_dele = 0;
   for (s = 0; s < fs->sectors; s++) {
     niffs_sector_hdr *shdr = (niffs_sector_hdr *)_NIFFS_SECTOR_2_ADDR(fs, s);
-    NIFFS_DUMP_OUT("sector %i @ %p  era_cnt:%i  magic:%s\n", s, shdr, shdr->era_cnt, shdr->abra ==  _NIFFS_SECT_MAGIC(fs) ? "OK" : "BAD");
+    NIFFS_DUMP_OUT("sector %2i @ %p  era_cnt:%4i  magic:%s\n", s, shdr, shdr->era_cnt, shdr->abra ==  _NIFFS_SECT_MAGIC(fs) ? "OK" : "BAD");
     niffs_page_ix ipix;
     for (ipix = 0; ipix < fs->pages_per_sector; ipix++) {
       niffs_page_ix pix = _NIFFS_PIX_AT_SECTOR(fs, s) + ipix;
@@ -1736,15 +1745,21 @@ void NIFFS_dump(niffs *fs) {
       NIFFS_DUMP_OUT("  %04x fl:%04x id:%04x ", pix, ohdr->phdr.flag, ohdr->phdr.id.raw);
       if (_NIFFS_IS_FREE(&ohdr->phdr)) tot_free++;
       if (_NIFFS_IS_DELE(&ohdr->phdr)) tot_dele++;
-      if (_NIFFS_IS_FREE(&ohdr->phdr)) NIFFS_DUMP_OUT("FREE ");
-      if (_NIFFS_IS_DELE(&ohdr->phdr)) NIFFS_DUMP_OUT("DELE ");
-      if (_NIFFS_IS_CLEA(&ohdr->phdr)) NIFFS_DUMP_OUT("CLEA ");
-      if (_NIFFS_IS_WRIT(&ohdr->phdr)) NIFFS_DUMP_OUT("WRIT ");
-      if (_NIFFS_IS_MOVI(&ohdr->phdr)) NIFFS_DUMP_OUT("MOVI ");
-      if (!_NIFFS_IS_FREE(&ohdr->phdr)) {
-        NIFFS_DUMP_OUT("\n    obj.id:%04x  sp.ix:%02x  ", ohdr->phdr.id.obj_id, ohdr->phdr.id.spix);
-        if (ohdr->phdr.id.spix == 0 && _NIFFS_IS_ID_VALID(&ohdr->phdr) && !_NIFFS_IS_DELE(&ohdr->phdr)) {
-          NIFFS_DUMP_OUT("len:%08x  name:%s  ", ohdr->len, ohdr->name);
+      NIFFS_DUMP_OUT(_NIFFS_IS_FREE(&ohdr->phdr) ? "FR " : "fr ");
+      NIFFS_DUMP_OUT(_NIFFS_IS_DELE(&ohdr->phdr) ? "DE " : "de ");
+      NIFFS_DUMP_OUT(_NIFFS_IS_CLEA(&ohdr->phdr) ? "CL " : "cl ");
+      NIFFS_DUMP_OUT(_NIFFS_IS_WRIT(&ohdr->phdr) ? "WR " : "wr ");
+      NIFFS_DUMP_OUT(_NIFFS_IS_MOVI(&ohdr->phdr) ? "MO " : "mo ");
+      NIFFS_DUMP_OUT(_NIFFS_IS_FLAG_VALID(&ohdr->phdr) ? "    " : "BAD ");
+      if (!_NIFFS_IS_FREE(&ohdr->phdr) && !_NIFFS_IS_DELE(&ohdr->phdr)) {
+        NIFFS_DUMP_OUT("  obj.id:%04x  sp.ix:%02x  ", ohdr->phdr.id.obj_id, ohdr->phdr.id.spix);
+        if (ohdr->phdr.id.spix == 0 && _NIFFS_IS_ID_VALID(&ohdr->phdr)) {
+          NIFFS_DUMP_OUT("len:%08x  name:", ohdr->len);
+          int i;
+          for (i = 0; i < NIFFS_NAME_LEN; i++) {
+            if (ohdr->name[i] == 0) break;
+            NIFFS_DUMP_OUT("%c", ohdr->name[i] < ' ' ? '.' : ohdr->name[i]);
+          }
         }
       }
       NIFFS_DUMP_OUT("\n");
