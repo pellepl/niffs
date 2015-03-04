@@ -38,4 +38,5 @@ int niffs_emul_verify_file(niffs *fs, char *name);
 int niffs_emul_verify_file_against_data(niffs *fs, char *name, u8_t *data);
 int niffs_emul_remove_all_zerosized_files(niffs *fs);
 
+
 #endif /* NIFFS_TEST_EMUL_H_ */

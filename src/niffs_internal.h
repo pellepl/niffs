@@ -166,6 +166,24 @@
       (((_offs) - _NIFFS_SPIX_2_PDATA_LEN(_fs, 0)) % _NIFFS_SPIX_2_PDATA_LEN(_fs, 1)) \
 )
 
+#define _NIFFS_RD(_fs, _dst, _src, _len) memcpy((_dst), (_src), (_len))
+#ifndef NIFFS_RD_ALLO_TEST
+#define _NIFFS_ALLO_PIX(_fs, _pix, _len) _NIFFS_PIX_2_ADDR(_fs, _pix)
+#define _NIFFS_ALLO_SECT(_fs, _s, _len) _NIFFS_SECTOR_2_ADDR(_fs, _s)
+#define _NIFFS_FREE(_fs, _addr)
+#else
+#define _NIFFS_ALLO_PIX(_fs, _pix, _len) niffs_alloc_read(_NIFFS_PIX_2_ADDR(_fs, _pix), _len)
+#define _NIFFS_ALLO_SECT(_fs, _s, _len) niffs_alloc_read(_NIFFS_SECTOR_2_ADDR(_fs, _s), _len)
+#define _NIFFS_FREE(_fs, _addr) niffs_alloc_free(_addr)
+#endif
+#define _NIFFS_FREE_RETURN(_fs, _addr, _res) do { \
+  _NIFFS_FREE(_fs, _addr); \
+  return (_res); \
+} while (0)
+#define _NIFFS_ERR_FREE_RETURN(_fs, _addr, _res) do { \
+  if ((_res) < NIFFS_OK) { _NIFFS_FREE_RETURN(_fs, _addr, _res); } \
+} while (0)
+
 #define _NIFFS_IS_ID_VALID(phdr) ((phdr)->id.obj_id != (niffs_obj_id)-1 && (phdr)-> id.obj_id != 0)
 #define _NIFFS_IS_FLAG_VALID(phdr) \
   ((phdr)->flag == _NIFFS_FLAG_CLEAN || (phdr)->flag == _NIFFS_FLAG_WRITTEN || (phdr)->flag == _NIFFS_FLAG_MOVING)

@@ -18,6 +18,12 @@ static u8_t buf[EMUL_BUF_SIZE];
 static niffs_file_desc descs[EMUL_FILE_DESCS];
 niffs fs;
 
+#ifdef NIFFS_RD_ALLO_TEST
+static int alive_allocs = 0;
+static int max_alive_allocs = 0;
+static int min_alive_allocs = 0;
+#endif
+
 typedef struct fdata_s{
   char name[32];
   u8_t *data;
@@ -81,11 +87,17 @@ int niffs_emul_init(void) {
   dhead = 0;
   dlast = 0;
   memset(_flash, 0xff, sizeof(_flash));
+  valid_byte_writes = 0;
+#ifdef NIFFS_RD_ALLO_TEST
+  printf("allocs max:%i min:%i\n", max_alive_allocs, min_alive_allocs);
+  alive_allocs = 0;
+  max_alive_allocs = -1;
+  min_alive_allocs = 1;
+#endif
   return NIFFS_init(&fs, (u8_t *)&_flash[0], EMUL_SECTORS, EMUL_SECTOR_SIZE, EMUL_PAGE_SIZE,
       buf, sizeof(buf),
       descs, EMUL_FILE_DESCS,
       emul_hal_erase_f, emul_hal_write_f);
-  valid_byte_writes = 0;
   return 0;
 }
 
@@ -423,3 +435,19 @@ int niffs_emul_remove_all_zerosized_files(niffs *fs) {
   NIFFS_closedir(&d);
   return NIFFS_OK;
 }
+
+#ifdef NIFFS_RD_ALLO_TEST
+void *niffs_alloc_read(void *src, u32_t len) {
+  alive_allocs++;
+  if (alive_allocs > max_alive_allocs) max_alive_allocs = alive_allocs;
+  void *b = malloc(len);
+  memcpy(b, src, len);
+  return b;
+}
+void niffs_alloc_free(void *addr) {
+  free(addr);
+  alive_allocs--;
+  if (alive_allocs < min_alive_allocs) min_alive_allocs = alive_allocs;
+}
+#endif
+
