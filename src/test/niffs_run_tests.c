@@ -30,6 +30,7 @@ void teardown(test *t) {
   niffs_emul_destroy_all_data();
 }
 
+
 TEST(run_create_many_small)
 {
   int files = 100 * (fs.sectors - 1) * fs.pages_per_sector;
@@ -969,5 +970,123 @@ TEST(run_create_modify_append_some_garbled_one_constant_aborted)
   return TEST_RES_OK;
 }
 TEST_END(run_create_modify_append_some_garbled_one_constant_aborted)
+
+
+// full system
+TEST(run_full)
+{
+  int res;
+  u32_t of_len = fs.sectors * fs.sector_size;
+  u8_t buf[EMUL_PAGE_SIZE];
+  memrand(buf, sizeof(buf), 0x20070515);
+  int fd = NIFFS_open(&fs, "overflow", NIFFS_O_CREAT | NIFFS_O_APPEND | NIFFS_O_RDWR, 0);
+  TEST_CHECK_GE(fd, 0);
+
+  printf("  fill fs but one page\n");
+  res = NIFFS_OK;
+  while (res >= NIFFS_OK) {
+    res = NIFFS_write(&fs, fd, buf, sizeof(buf));
+  }
+  TEST_CHECK_EQ(res, ERR_NIFFS_FULL);
+
+  niffs_stat s;
+  TEST_CHECK_EQ(NIFFS_fstat(&fs, fd, &s), NIFFS_OK);
+  printf("    %s\t%i bytes\n", s.name, s.size);
+
+  NIFFS_close(&fs, fd);
+
+  printf("  create a file in last page\n");
+  fd = NIFFS_open(&fs, "full", NIFFS_O_CREAT | NIFFS_O_APPEND | NIFFS_O_RDWR, 0);
+  TEST_CHECK_GE(fd, 0);
+  res = NIFFS_write(&fs, fd, buf, _NIFFS_SPIX_2_PDATA_LEN(&fs, 0));
+  TEST_CHECK_GE(res, NIFFS_OK);
+  TEST_CHECK_EQ(NIFFS_fstat(&fs, fd, &s), NIFFS_OK);
+  printf("    %s\t%i bytes\n", s.name, s.size);
+  TEST_CHECK_EQ(s.size, _NIFFS_SPIX_2_PDATA_LEN(&fs, 0));
+  printf("  remove file in last page\n");
+  TEST_CHECK_EQ(NIFFS_remove(&fs, "full"), NIFFS_OK);
+
+  printf("  create a file in last page again\n");
+  fd = NIFFS_open(&fs, "fullagain", NIFFS_O_CREAT | NIFFS_O_APPEND | NIFFS_O_RDWR, 0);
+  TEST_CHECK_GE(fd, 0);
+  res = NIFFS_write(&fs, fd, buf, _NIFFS_SPIX_2_PDATA_LEN(&fs, 0));
+  TEST_CHECK_GE(res, NIFFS_OK);
+  TEST_CHECK_EQ(NIFFS_fstat(&fs, fd, &s), NIFFS_OK);
+  printf("    %s\t%i bytes\n", s.name, s.size);
+  TEST_CHECK_EQ(s.size, _NIFFS_SPIX_2_PDATA_LEN(&fs, 0));
+  printf("  remove file in last page\n");
+  TEST_CHECK_EQ(NIFFS_remove(&fs, "fullagain"), NIFFS_OK);
+
+  printf("  create a file in last page again, now with too big a size\n");
+  fd = NIFFS_open(&fs, "fullof", NIFFS_O_CREAT | NIFFS_O_APPEND | NIFFS_O_RDWR, 0);
+  TEST_CHECK_GE(fd, 0);
+  res = NIFFS_write(&fs, fd, buf, _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + 1);
+  TEST_CHECK_EQ(res, ERR_NIFFS_FULL);
+  TEST_CHECK_EQ(NIFFS_fstat(&fs, fd, &s), NIFFS_OK);
+  printf("    %s\t%i bytes\n", s.name, s.size);
+  TEST_CHECK_EQ(s.size, 0);
+
+  printf("  remove huge file\n");
+  TEST_CHECK_EQ(NIFFS_remove(&fs, "overflow"), NIFFS_OK);
+
+  printf("  write to file in last page again, with the big size\n");
+  res = NIFFS_write(&fs, fd, buf, _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + 1);
+  TEST_CHECK_EQ(res, _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + 1);
+  TEST_CHECK_EQ(NIFFS_fstat(&fs, fd, &s), NIFFS_OK);
+  printf("    %s\t%i bytes\n", s.name, s.size);
+  TEST_CHECK_EQ(s.size, _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + 1);
+
+  return TEST_RES_OK;
+}
+TEST_END(run_full)
+
+TEST(run_full_single_byte)
+{
+  int res;
+  u32_t of_len = fs.sectors * fs.sector_size;
+  int fd = NIFFS_open(&fs, "overflow", NIFFS_O_CREAT | NIFFS_O_APPEND | NIFFS_O_RDWR, 0);
+  TEST_CHECK_GE(fd, 0);
+
+  printf("  fill fs, byte wise\n");
+  res = NIFFS_OK;
+  while (res >= NIFFS_OK) {
+    u8_t data = 'z';
+    res = NIFFS_write(&fs, fd, &data, 1);
+  }
+  TEST_CHECK_EQ(res, ERR_NIFFS_FULL);
+
+  niffs_stat s;
+  TEST_CHECK_EQ(NIFFS_fstat(&fs, fd, &s), NIFFS_OK);
+  printf("    %s\t%i bytes\n", s.name, s.size);
+
+  NIFFS_close(&fs, fd);
+
+  printf("  create a file when full\n");
+  fd = NIFFS_open(&fs, "full", NIFFS_O_CREAT | NIFFS_O_APPEND | NIFFS_O_RDWR, 0);
+  TEST_CHECK_EQ(fd, ERR_NIFFS_FULL);
+  TEST_CHECK_EQ(NIFFS_fstat(&fs, fd, &s), ERR_NIFFS_FILEDESC_BAD);
+  TEST_CHECK_EQ(NIFFS_stat(&fs, "full", &s), ERR_NIFFS_FILE_NOT_FOUND);
+
+  printf("  remove huge file\n");
+  TEST_CHECK_EQ(NIFFS_remove(&fs, "overflow"), NIFFS_OK);
+
+  printf("  create a file again\n");
+  fd = NIFFS_open(&fs, "notfull", NIFFS_O_CREAT | NIFFS_O_APPEND | NIFFS_O_RDWR, 0);
+  TEST_CHECK_GE(fd, NIFFS_OK);
+  int i;
+  res = NIFFS_OK;
+  for (i = 0; i < 1000 && res >= NIFFS_OK; i++) {
+    u8_t data = 'x';
+    res = NIFFS_write(&fs, fd, &data, 1);
+  }
+  TEST_CHECK_GE(res, NIFFS_OK);
+
+  TEST_CHECK_EQ(NIFFS_fstat(&fs, fd, &s), NIFFS_OK);
+  printf("    %s\t%i bytes\n", s.name, s.size);
+  TEST_CHECK_EQ(s.size, 1000);
+
+  return TEST_RES_OK;
+}
+TEST_END(run_full_single_byte)
 
 SUITE_END(niffs_run_tests)
