@@ -58,6 +58,7 @@ static int emul_hal_write_f(u8_t *addr, u8_t *src, u32_t len) {
     return ERR_NIFFS_TEST_UNLIGNED_WRITE_ADDR;
   }
 #endif
+//  printf("                       WRIT     %p : %i\n", addr, len);
   int i;
   for (i = 0;  i < len; i++) {
     u8_t b = *src;
@@ -437,17 +438,29 @@ int niffs_emul_remove_all_zerosized_files(niffs *fs) {
 }
 
 #ifdef NIFFS_RD_ALLO_TEST
+
 void *niffs_alloc_read(void *src, u32_t len) {
   alive_allocs++;
   if (alive_allocs > max_alive_allocs) max_alive_allocs = alive_allocs;
   void *b = malloc(len);
   memcpy(b, src, len);
+//  printf("                       allo[%2d] %p -> %p : %i\n", alive_allocs, b, src, len);
   return b;
 }
 void niffs_alloc_free(void *addr) {
+//  printf("                       free[%2d] %p\n", alive_allocs-1,  addr);
   free(addr);
   alive_allocs--;
   if (alive_allocs < min_alive_allocs) min_alive_allocs = alive_allocs;
 }
+
 #endif
+
+int niffs_emul_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
+#ifndef NIFFS_RD_ALLO_TEST
+  return niffs_read_ptr(fs, fd_ix, data, avail);
+#else
+  return niffs_read_ptr(fs, fd_ix, data, avail); // TODO come up with something here
+#endif
+}
 

@@ -107,15 +107,21 @@ all: mkdirs $(BINARY) test
 mkdirs:
 	-@${MKDIR} ${builddir}
 
+FILTER ?=
+
 test: $(BINARY)
+ifdef $(FILTER)
 		./build/$(BINARY)
+else
+		./build/$(BINARY) -f $(FILTER)
+endif
 		@for cfile in $(CFILES); do \
 			gcov -o ${builddir} ${src}/$$cfile | \
 			sed -nr "1 s/File '(.*)'/\1/p;2 s/Lines executed:(.*)/: \1 lines/p" | \
 			sed 'N;s/\n/ /'; \
 		done
 	
-test_failed: all
+test_failed: $(BINARY)
 		./build/$(BINARY) _tests_fail
 	
 clean:

@@ -66,6 +66,7 @@ typedef struct test_s {
   void (*setup)(struct test_s *t);
   void (*teardown)(struct test_s *t);
   struct test_s *_next;
+  unsigned char test_result;
 } test;
 
 typedef struct test_res_s {
