@@ -1346,7 +1346,12 @@ static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, nif
     }
   } else if (_NIFFS_IS_FREE(phdr) && _NIFFS_IS_CLEA(phdr)) {
     u32_t ix;
+#ifndef NIFFS_RD_ALLO_TEST
     u8_t *addr = (u8_t *)phdr;
+#else
+    _NIFFS_RD(fs, fs->rd_buf, _NIFFS_PIX_2_ADDR(fs, pix), fs->page_size);
+    u8_t *addr = fs->rd_buf;
+#endif
     for (ix = 0; ix < fs->page_size; ix++) {
       if (addr[ix] != 0xff) {
         NIFFS_DBG("check : pix %04x free but contains data, delete hard\n", pix);
