@@ -62,7 +62,7 @@ extern u8_t __dbg;
 #define NIFFS_DUMP                        // enable dumping
 #define NIFFS_DUMP_OUT(...)         printf(__VA_ARGS__)
 //#define NIFFS_EXPERIMENTAL_GC_DISTRIBUTED_SPARE_SECTOR  // let's be bold
-#define NIFFS_RD_ALLO_TEST
+//#define NIFFS_RD_ALLO_TEST
 
 #define NIFFS_ASSERT(x) do { \
   if (!(x)) { \
