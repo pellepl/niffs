@@ -15,8 +15,13 @@ void setup(test *t) {
 }
 
 void teardown(test *t) {
+  if (t->test_result != TEST_RES_OK) {
+    NIFFS_dump(&fs);
+  }
+
   niffs_emul_destroy_all_data();
 }
+
 
 #ifdef NIFFS_DUMP
 TEST(func_dump) {
@@ -244,6 +249,7 @@ TEST(func_append_read) {
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, almost a page
+
   int fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
@@ -261,7 +267,7 @@ TEST(func_append_read) {
   u32_t ix = 0;
 
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -277,6 +283,7 @@ TEST(func_append_read) {
   TEST_CHECK_EQ(fs.dele_pages, 0);
 
   // append one page file, rest of page
+
   fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
 
@@ -293,7 +300,7 @@ TEST(func_append_read) {
   ix = 0;
 
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     u32_t alen = MIN(rlen, len-ix);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], alen);
@@ -304,7 +311,7 @@ TEST(func_append_read) {
   }
 
   while (ix < len + len2) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     u32_t alen = MIN(rlen, len-(ix-len));
     res = memcmp(rptr, &d2[ix-len], alen);
@@ -316,7 +323,7 @@ TEST(func_append_read) {
 
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
-  res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+  res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
   TEST_CHECK(res == ERR_NIFFS_END_OF_FILE);
 
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
@@ -341,9 +348,10 @@ TEST(func_append_read) {
   ix = 0;
 
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     u32_t alen = MIN(rlen, len-ix);
+
     res = memcmp(rptr, &d[ix], alen);
     TEST_CHECK_EQ(res,  0);
     ix += alen;
@@ -352,7 +360,7 @@ TEST(func_append_read) {
   }
 
   while (ix < len + len2) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     u32_t alen = MIN(rlen, len2-(ix-len));
     res = memcmp(rptr, &d2[ix-len], alen);
@@ -363,7 +371,7 @@ TEST(func_append_read) {
   }
 
   while (ix < len + len2 + len3) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     u32_t alen = MIN(rlen, len3-(ix-len-len2));
     res = memcmp(rptr, &d3[ix-len-len2], alen);
@@ -395,7 +403,7 @@ TEST(func_append_read) {
   ix = 0;
 
   while (ix < len) {
-     res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+     res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     u32_t alen = MIN(rlen, len-ix);
     res = memcmp(rptr, &d[ix], alen);
@@ -406,7 +414,7 @@ TEST(func_append_read) {
   }
 
   while (ix < len + len2) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     u32_t alen = MIN(rlen, len2-(ix-len));
      res = memcmp(rptr, &d2[ix-len], alen);
@@ -417,7 +425,7 @@ TEST(func_append_read) {
   }
 
   while (ix < len + len2 + len3) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     u32_t alen = MIN(rlen, len3-(ix-len-len2));
     res = memcmp(rptr, &d3[ix-len-len2], alen);
@@ -428,7 +436,7 @@ TEST(func_append_read) {
   }
 
   while (ix < len + len2 + len3 + len4) {
-     res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     u32_t alen = MIN(rlen, len4-(ix-len-len2-len3));
     res = memcmp(rptr, &d4[ix-len-len2-len3], alen);
@@ -486,7 +494,7 @@ TEST(func_modify_ohdr) {
 
   TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -542,7 +550,7 @@ TEST(func_modify_page) {
 
   TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -598,7 +606,7 @@ TEST(func_modify_pagespan) {
 
   TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -654,7 +662,7 @@ TEST(func_modify_pagespan_nobreak) {
 
   TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -710,7 +718,7 @@ TEST(func_modify_beyond) {
   u32_t ix = 0;
 
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -753,7 +761,7 @@ TEST(func_truncate) {
   fd = niffs_open(&fs, "trunc", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -764,7 +772,7 @@ TEST(func_truncate) {
 
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
-  res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+  res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
   TEST_CHECK(res == ERR_NIFFS_END_OF_FILE);
 
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
@@ -783,7 +791,7 @@ TEST(func_truncate) {
   TEST_CHECK(fd >= 0);
   ix = 0;
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -794,7 +802,7 @@ TEST(func_truncate) {
 
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
-  res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+  res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
   TEST_CHECK(res == ERR_NIFFS_END_OF_FILE);
 
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
@@ -813,7 +821,7 @@ TEST(func_truncate) {
   TEST_CHECK(fd >= 0);
   ix = 0;
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -824,7 +832,7 @@ TEST(func_truncate) {
 
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
-  res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+  res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
   TEST_CHECK(res == ERR_NIFFS_END_OF_FILE);
 
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
@@ -873,7 +881,7 @@ TEST(func_rename) {
   fd = niffs_open(&fs, "new", NIFFS_O_RDWR);
   TEST_CHECK(fd >= 0);
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &d[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -884,7 +892,7 @@ TEST(func_rename) {
 
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
-  res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+  res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
   TEST_CHECK(res == ERR_NIFFS_END_OF_FILE);
 
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
@@ -965,7 +973,7 @@ TEST(func_gc) {
   u8_t *rptr;
   u32_t rlen;
   while (ix < len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &data[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -1173,7 +1181,7 @@ TEST(func_gc_long_run) {
       u32_t len = data_len[i];
 
       while (ix < len) {
-        res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+        res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
         TEST_CHECK(res > 0);
         res = memcmp(rptr, &data[i][ix], rlen);
         TEST_CHECK_EQ(res,  0);
@@ -1329,7 +1337,7 @@ TEST(func_check_aborted_append) {
   TEST_CHECK(fd >= 0);
   TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < orig_len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     res = memcmp(rptr, &orig_data[ix], rlen);
     TEST_CHECK_EQ(res,  0);
@@ -1385,7 +1393,7 @@ TEST(func_check_aborted_modify) {
   TEST_CHECK(fd >= 0);
   TEST_CHECK_EQ(niffs_seek(&fs, fd, 0, NIFFS_SEEK_SET), NIFFS_OK);
   while (ix < orig_len) {
-    res = niffs_read_ptr(&fs, fd, &rptr, &rlen);
+    res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
     TEST_CHECK(res > 0);
     ix += rlen;
     res = niffs_seek(&fs, fd, ix, NIFFS_SEEK_SET);
@@ -1414,7 +1422,6 @@ TEST(func_check_aborted_erase) {
 
   return TEST_RES_OK;
 } TEST_END(func_check_aborted_erase)
-
 
 
 SUITE_END(niffs_func_tests)

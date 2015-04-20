@@ -535,12 +535,12 @@ TEST(sys_read_ptr_beyond)
   TEST_CHECK_GE(fd, 0);
   u8_t *rptr;
   u32_t rlen;
-  res = NIFFS_read_ptr(&fs, fd, &rptr, &rlen);
+  res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
   TEST_CHECK_EQ(res, len);
   TEST_CHECK_EQ(rlen, len);
   res = NIFFS_lseek(&fs, fd, 0, NIFFS_SEEK_END);
   TEST_CHECK_EQ(res, NIFFS_OK);
-  res = NIFFS_read_ptr(&fs, fd, &rptr, &rlen);
+  res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
   TEST_CHECK_EQ(res, ERR_NIFFS_END_OF_FILE);
   TEST_CHECK_EQ(rlen, 0);
 
@@ -562,7 +562,7 @@ TEST(sys_read_ptr_empty)
   TEST_CHECK_GE(fd, 0);
   u8_t *rptr;
   u32_t rlen;
-  res = NIFFS_read_ptr(&fs, fd, &rptr, &rlen);
+  res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
   TEST_CHECK_EQ(res, ERR_NIFFS_END_OF_FILE);
   TEST_CHECK_EQ(rlen, 0);
 
@@ -788,7 +788,7 @@ TEST(sys_lseek_modification_append_multi) {
     offs += len;
 
     res = niffs_emul_verify_file_against_data(&fs, "seekfile", refbuf);
-    TEST_CHECK(res >= 0);
+    TEST_CHECK_GE(res, 0);
   }
 
   (void)NIFFS_close(&fs, fd);

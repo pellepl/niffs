@@ -107,6 +107,9 @@ typedef struct {
   niffs_file_desc *descs;
   u32_t descs_len;
   u32_t max_era;
+#ifdef NIFFS_RD_ALLO_TEST
+  u8_t rd_buf[256]; // TODO for test only
+#endif
 } niffs;
 
 /* niffs file status struct */

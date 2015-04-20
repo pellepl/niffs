@@ -27,6 +27,9 @@ void setup(test *t) {
 }
 
 void teardown(test *t) {
+  if (t->test_result != TEST_RES_OK) {
+    NIFFS_dump(&fs);
+  }
   niffs_emul_destroy_all_data();
 }
 
@@ -648,7 +651,7 @@ TEST(run_create_many_garbled_one_constant_aborted)
     niffs_emul_get_sector_erase_count_info(&fs, &era_min, &era_max);
     if (era_max > 0) {
       NIFFS_DBG_TEST("ERA INF min:%i max:%i span:%i\n", era_min, era_max, ((era_max - era_min)*100)/era_max);
-      if (era_max > 100) TEST_CHECK(((era_max - era_min)*100)/era_max < 50);
+      if (era_max > 100) TEST_CHECK_LT(((era_max - era_min)*100)/era_max, 50);
     }
   } // main loop
 
@@ -692,6 +695,8 @@ TEST(run_create_modify_append_some_garbled_one_constant_aborted)
 
   while (run < runs) {
     NIFFS_DBG_TEST("run#%i\n", run);
+    //TODO if (run == 11660) __dbg = 1;
+    //TODO if (run >= 11660) NIFFS_dump(&fs);
     u8_t data_already_freed = 0;
     u8_t create_else_mod = 0;
 
@@ -954,7 +959,7 @@ TEST(run_create_modify_append_some_garbled_one_constant_aborted)
     niffs_emul_get_sector_erase_count_info(&fs, &era_min, &era_max);
     if (era_max > 0) {
       NIFFS_DBG_TEST("ERA INF min:%i max:%i span:%i\n", era_min, era_max, ((era_max - era_min)*100)/era_max);
-      if (era_max > 100) TEST_CHECK(((era_max - era_min)*100)/era_max < 50);
+      if (era_max > 100) TEST_CHECK_LT(((era_max - era_min)*100)/era_max, 50);
     }
     run++;
     if ((run % (runs/50))==0) {

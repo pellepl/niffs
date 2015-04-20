@@ -460,7 +460,7 @@ int niffs_emul_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
 #ifndef NIFFS_RD_ALLO_TEST
   return niffs_read_ptr(fs, fd_ix, data, avail);
 #else
-  return niffs_read_ptr(fs, fd_ix, data, avail); // TODO come up with something here
+  return niffs_read_ptr(fs, fd_ix, data, avail); // TODO perhaps something's needed here, keep for now
 #endif
 }
 

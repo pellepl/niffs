@@ -166,7 +166,7 @@
       (((_offs) - _NIFFS_SPIX_2_PDATA_LEN(_fs, 0)) % _NIFFS_SPIX_2_PDATA_LEN(_fs, 1)) \
 )
 
-#define _NIFFS_RD(_fs, _dst, _src, _len) memcpy((_dst), (_src), (_len))
+#define _NIFFS_RD(_fs, _dst, _src, _len) do {memcpy((_dst), (_src), (_len));}while(0)
 #ifndef NIFFS_RD_ALLO_TEST
 #define _NIFFS_ALLO_PIX(_fs, _pix, _len) _NIFFS_PIX_2_ADDR(_fs, _pix)
 #define _NIFFS_ALLO_SECT(_fs, _s, _len) _NIFFS_SECTOR_2_ADDR(_fs, _s)
