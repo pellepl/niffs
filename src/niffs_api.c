@@ -27,7 +27,7 @@ int NIFFS_creat(niffs *fs, char *name, niffs_mode mode) {
   return res;
 }
 
-int NIFFS_open(niffs *fs, char *name, u8_t flags, niffs_mode mode) {
+int NIFFS_open(niffs *fs, const char *name, u8_t flags, niffs_mode mode) {
   (void)mode;
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
   int res = NIFFS_OK;
@@ -111,7 +111,7 @@ int NIFFS_lseek(niffs *fs, int fd, s32_t offs, int whence) {
   return niffs_seek(fs, fd, offs, whence);
 }
 
-int NIFFS_remove(niffs *fs, char *name) {
+int NIFFS_remove(niffs *fs, const char *name) {
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
   int res;
 
@@ -128,7 +128,7 @@ int NIFFS_fremove(niffs *fs, int fd) {
   return niffs_truncate(fs, fd, 0);
 }
 
-int NIFFS_write(niffs *fs, int fd_ix, u8_t *data, u32_t len) {
+int NIFFS_write(niffs *fs, int fd_ix, const u8_t *data, u32_t len) {
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
   int res;
   niffs_file_desc *fd;
@@ -171,7 +171,7 @@ int NIFFS_fflush(niffs *fs, int fd) {
   return NIFFS_OK;
 }
 
-int NIFFS_stat(niffs *fs, char *name, niffs_stat *s) {
+int NIFFS_stat(niffs *fs, const char *name, niffs_stat *s) {
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
   int res;
 
@@ -216,12 +216,12 @@ int NIFFS_close(niffs *fs, int fd) {
   return niffs_close(fs, fd);
 }
 
-int NIFFS_rename(niffs *fs, char *old_name, char *new_name) {
+int NIFFS_rename(niffs *fs, const char *old_name, const char *new_name) {
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
   return niffs_rename(fs, old_name, new_name);
 }
 
-niffs_DIR *NIFFS_opendir(niffs *fs, char *name, niffs_DIR *d) {
+niffs_DIR *NIFFS_opendir(niffs *fs, const char *name, niffs_DIR *d) {
   (void)name;
   if (!fs->mounted) return 0;
   d->fs = fs;
