@@ -71,7 +71,7 @@
 #define ERR_NIFFS_OVERFLOW                  -11036
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
-typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);
+typedef int (* niffs_hal_write_f)(u8_t *addr, const u8_t *src, u32_t len);
 // dummy type, for posix compliance
 typedef u16_t niffs_mode;
 // niffs file descriptor flags
@@ -287,7 +287,7 @@ int NIFFS_close(niffs *fs, int fd);
  * @param old           name of file to rename
  * @param new           new name of file
  */
-int NIFFS_rename(niffs *fs, char *old, char *new);
+int NIFFS_rename(niffs *fs, char *old_name, char *new_name);
 
 /**
  * Opens a directory stream corresponding to the given name.

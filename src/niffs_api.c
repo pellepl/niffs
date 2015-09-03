@@ -216,9 +216,9 @@ int NIFFS_close(niffs *fs, int fd) {
   return niffs_close(fs, fd);
 }
 
-int NIFFS_rename(niffs *fs, char *old, char *new) {
+int NIFFS_rename(niffs *fs, char *old_name, char *new_name) {
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
-  return niffs_rename(fs, old, new);
+  return niffs_rename(fs, old_name, new_name);
 }
 
 niffs_DIR *NIFFS_opendir(niffs *fs, char *name, niffs_DIR *d) {
