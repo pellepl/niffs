@@ -755,7 +755,7 @@ int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
     src += avail;
     data_offs += avail;
     written += avail;
-    fd->offs += written;
+    fd->offs += avail;
   }
 
   _NIFFS_ERR_FREE_RETURN(fs, orig_ohdr, res);
