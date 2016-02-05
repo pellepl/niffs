@@ -498,7 +498,9 @@ TEST(sys_read_beyond)
   res = NIFFS_read(&fs, fd, buf, len);
   TEST_CHECK_EQ(res, len);
   res = NIFFS_read(&fs, fd, buf, len);
-  TEST_CHECK_EQ(res, ERR_NIFFS_END_OF_FILE);
+  TEST_CHECK_EQ(res, 0);  /*
+    If the starting position is at or after the end-of-file, 0 shall be returned.
+    [http://pubs.opengroup.org/onlinepubs/009695399/functions/read.html] */
 
   return TEST_RES_OK;
 }
@@ -518,7 +520,9 @@ TEST(sys_read_empty)
   fd = NIFFS_open(&fs, "empty", NIFFS_O_RDONLY, 0);
   TEST_CHECK_GE(fd, 0);
   res = NIFFS_read(&fs, fd, buf, len);
-  TEST_CHECK_EQ(res, ERR_NIFFS_END_OF_FILE);
+  TEST_CHECK_EQ(res, 0);  /*
+    If the starting position is at or after the end-of-file, 0 shall be returned.
+    [http://pubs.opengroup.org/onlinepubs/009695399/functions/read.html] */
 
   return TEST_RES_OK;
 }
