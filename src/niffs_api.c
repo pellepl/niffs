@@ -99,7 +99,7 @@ int NIFFS_read(niffs *fs, int fd_ix, u8_t *dst, u32_t len) {
     }
   } while (len > 0 && res >= 0);
 
-  if (res == ERR_NIFFS_END_OF_FILE && read_len > 0) {
+  if (res == ERR_NIFFS_END_OF_FILE && read_len >= 0) {
     return read_len;
   }
 
