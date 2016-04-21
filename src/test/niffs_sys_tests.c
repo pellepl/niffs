@@ -10,13 +10,13 @@
 
 SUITE(niffs_sys_tests)
 
-void setup(test *t) {
+static void setup(test *t) {
   (void)niffs_emul_init();
   NIFFS_format(&fs);
   NIFFS_mount(&fs);
 }
 
-void teardown(test *t) {
+static void teardown(test *t) {
   niffs_emul_destroy_all_data();
 }
 
@@ -27,7 +27,7 @@ TEST(sys_missing_file)
   TEST_CHECK_LT(fd, 0);
   return TEST_RES_OK;
 }
-TEST_END(sys_missing_file)
+TEST_END
 
 
 TEST(sys_bad_fd)
@@ -48,7 +48,7 @@ TEST(sys_bad_fd)
   TEST_CHECK_EQ(res, ERR_NIFFS_FILEDESC_BAD);
   return TEST_RES_OK;
 }
-TEST_END(sys_bad_fd)
+TEST_END
 
 
 TEST(sys_closed_fd)
@@ -73,7 +73,7 @@ TEST(sys_closed_fd)
   TEST_CHECK_EQ(res, ERR_NIFFS_FILEDESC_CLOSED);
   return TEST_RES_OK;
 }
-TEST_END(sys_closed_fd)
+TEST_END
 
 TEST(sys_deleted_same_fd)
 {
@@ -102,7 +102,7 @@ TEST(sys_deleted_same_fd)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_deleted_same_fd)
+TEST_END
 
 
 TEST(sys_deleted_other_fd)
@@ -133,7 +133,7 @@ TEST(sys_deleted_other_fd)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_deleted_other_fd)
+TEST_END
 
 
 TEST(sys_fd_overflow)
@@ -153,7 +153,7 @@ TEST(sys_fd_overflow)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_fd_overflow)
+TEST_END
 
 
 
@@ -179,7 +179,7 @@ TEST(sys_file_by_open)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_file_by_open)
+TEST_END
 
 TEST(sys_file_by_open_flags)
 {
@@ -259,7 +259,7 @@ TEST(sys_file_by_open_flags)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_file_by_open_flags)
+TEST_END
 
 TEST(sys_file_by_creat)
 {
@@ -270,7 +270,7 @@ TEST(sys_file_by_creat)
   TEST_CHECK_EQ(res, ERR_NIFFS_NAME_CONFLICT);
   return TEST_RES_OK;
 }
-TEST_END(sys_file_by_creat)
+TEST_END
 
 TEST(sys_list_dir)
 {
@@ -312,7 +312,7 @@ TEST(sys_list_dir)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_list_dir)
+TEST_END
 
 TEST(sys_write) {
   int res;
@@ -335,7 +335,7 @@ TEST(sys_write) {
 
   return TEST_RES_OK;
 }
-TEST_END(sys_write)
+TEST_END
 
 
 
@@ -381,7 +381,7 @@ TEST(sys_simultaneous_write) {
 
   return TEST_RES_OK;
 }
-TEST_END(sys_simultaneous_write)
+TEST_END
 
 TEST(sys_simultaneous_write_append) {
   int res = NIFFS_creat(&fs, "simul2", 0);
@@ -426,7 +426,7 @@ TEST(sys_simultaneous_write_append) {
 
   return TEST_RES_OK;
 }
-TEST_END(sys_simultaneous_write_append)
+TEST_END
 
 TEST(sys_rename) {
   int res;
@@ -449,7 +449,7 @@ TEST(sys_rename) {
   TEST_CHECK_EQ(res, ERR_NIFFS_FILE_NOT_FOUND);
 
   return TEST_RES_OK;
-} TEST_END(sys_rename)
+} TEST_END
 
 TEST(sys_remove_single_by_path)
 {
@@ -464,7 +464,7 @@ TEST(sys_remove_single_by_path)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_remove_single_by_path)
+TEST_END
 
 
 TEST(sys_remove_single_by_fd)
@@ -483,7 +483,7 @@ TEST(sys_remove_single_by_fd)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_remove_single_by_fd)
+TEST_END
 
 TEST(sys_read_beyond)
 {
@@ -504,7 +504,7 @@ TEST(sys_read_beyond)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_read_beyond)
+TEST_END
 
 TEST(sys_read_empty)
 {
@@ -526,7 +526,7 @@ TEST(sys_read_empty)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_read_empty)
+TEST_END
 
 TEST(sys_read_ptr_beyond)
 {
@@ -550,7 +550,7 @@ TEST(sys_read_ptr_beyond)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_read_ptr_beyond)
+TEST_END
 
 TEST(sys_read_ptr_empty)
 {
@@ -572,7 +572,7 @@ TEST(sys_read_ptr_empty)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_read_ptr_empty)
+TEST_END
 
 TEST(sys_write_flush)
 {
@@ -604,7 +604,7 @@ TEST(sys_write_flush)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_write_flush)
+TEST_END
 
 TEST(sys_file_uniqueness)
 {
@@ -674,7 +674,7 @@ TEST(sys_file_uniqueness)
 
   return TEST_RES_OK;
 }
-TEST_END(sys_file_uniqueness)
+TEST_END
 
 TEST(sys_lseek_simple_modification) {
   int res;
@@ -716,7 +716,7 @@ TEST(sys_lseek_simple_modification) {
 
   return TEST_RES_OK;
 }
-TEST_END(sys_lseek_simple_modification)
+TEST_END
 
 TEST(sys_lseek_modification_append) {
   int res;
@@ -758,7 +758,7 @@ TEST(sys_lseek_modification_append) {
 
   return TEST_RES_OK;
 }
-TEST_END(sys_lseek_modification_append)
+TEST_END
 
 TEST(sys_lseek_modification_append_multi) {
   int res;
@@ -799,7 +799,7 @@ TEST(sys_lseek_modification_append_multi) {
 
   return TEST_RES_OK;
 }
-TEST_END(sys_lseek_modification_append_multi)
+TEST_END
 
 TEST(sys_lseek) {
   int res;
@@ -855,7 +855,7 @@ TEST(sys_lseek) {
 
   return TEST_RES_OK;
 }
-TEST_END(sys_lseek)
+TEST_END
 
 TEST(sys_lseek_read_ftell) {
   int res;
@@ -918,6 +918,36 @@ TEST(sys_lseek_read_ftell) {
 
   return TEST_RES_OK;
 }
-TEST_END(sys_lseek_read_ftell)
+TEST_END
 
+
+
+SUITE_TESTS(niffs_sys_tests)
+  ADD_TEST(sys_missing_file)
+  ADD_TEST(sys_bad_fd)
+  ADD_TEST(sys_closed_fd)
+  ADD_TEST(sys_deleted_same_fd)
+  ADD_TEST(sys_deleted_other_fd)
+  ADD_TEST(sys_fd_overflow)
+  ADD_TEST(sys_file_by_open)
+  ADD_TEST(sys_file_by_open_flags)
+  ADD_TEST(sys_file_by_creat)
+  ADD_TEST(sys_list_dir)
+  ADD_TEST(sys_write)
+  ADD_TEST(sys_simultaneous_write)
+  ADD_TEST(sys_simultaneous_write_append)
+  ADD_TEST(sys_rename)
+  ADD_TEST(sys_remove_single_by_path)
+  ADD_TEST(sys_remove_single_by_fd)
+  ADD_TEST(sys_read_beyond)
+  ADD_TEST(sys_read_empty)
+  ADD_TEST(sys_read_ptr_beyond)
+  ADD_TEST(sys_read_ptr_empty)
+  ADD_TEST(sys_write_flush)
+  ADD_TEST(sys_file_uniqueness)
+  ADD_TEST(sys_lseek_simple_modification)
+  ADD_TEST(sys_lseek_modification_append)
+  ADD_TEST(sys_lseek_modification_append_multi)
+  ADD_TEST(sys_lseek)
+  ADD_TEST(sys_lseek_read_ftell)
 SUITE_END(niffs_sys_tests)

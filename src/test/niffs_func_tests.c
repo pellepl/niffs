@@ -10,11 +10,11 @@
 
 SUITE(niffs_func_tests)
 
-void setup(test *t) {
+static void setup(test *t) {
   (void)niffs_emul_init();
 }
 
-void teardown(test *t) {
+static void teardown(test *t) {
   if (t->test_result != TEST_RES_OK) {
     NIFFS_dump(&fs);
   }
@@ -30,7 +30,7 @@ TEST(func_dump) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
   NIFFS_dump(&fs);
   return TEST_RES_OK;
-} TEST_END(func_dump)
+} TEST_END
 #endif
 
 TEST(func_info) {
@@ -46,11 +46,11 @@ TEST(func_info) {
   TEST_CHECK_GT(tot, fs.sector_size);
   TEST_CHECK_EQ(used, 0);
   return TEST_RES_OK;
-} TEST_END(func_info)
+} TEST_END
 
 TEST(func_init_virgin) {
   return TEST_RES_OK;
-} TEST_END(func_init_virgin)
+} TEST_END
 
 TEST(func_format_virgin) {
   int res = NIFFS_format(&fs);
@@ -68,20 +68,20 @@ TEST(func_format_virgin) {
   TEST_CHECK_EQ(id, 1);
 
   return TEST_RES_OK;
-} TEST_END(func_format_virgin)
+} TEST_END
 
 TEST(func_mount_clean) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), ERR_NIFFS_NOT_A_FILESYSTEM);
 
   return TEST_RES_OK;
-} TEST_END(func_mount_clean)
+} TEST_END
 
 TEST(func_mount_scrap) {
   niffs_emul_rand_filesystem();
   TEST_CHECK_EQ(NIFFS_mount(&fs), ERR_NIFFS_NOT_A_FILESYSTEM);
 
   return TEST_RES_OK;
-} TEST_END(func_mount_scrap)
+} TEST_END
 
 TEST(func_find_free_page) {
   int res = NIFFS_format(&fs);
@@ -97,7 +97,7 @@ TEST(func_find_free_page) {
   }
 
   return TEST_RES_OK;
-} TEST_END(func_find_free_page)
+} TEST_END
 
 TEST(func_write_phdr) {
   int res = NIFFS_format(&fs);
@@ -123,7 +123,7 @@ TEST(func_write_phdr) {
   TEST_CHECK_EQ(res,  ERR_NIFFS_WR_PHDR_UNFREE_PAGE);
 
   return TEST_RES_OK;
-} TEST_END(func_write_phdr)
+} TEST_END
 
 TEST(func_write_phdr_fill) {
   int res = NIFFS_format(&fs);
@@ -149,7 +149,7 @@ TEST(func_write_phdr_fill) {
   TEST_CHECK(res == ERR_NIFFS_NO_FREE_PAGE || res == ERR_NIFFS_NO_FREE_ID);
 
   return TEST_RES_OK;
-} TEST_END(func_write_phdr_fill)
+} TEST_END
 
 TEST(func_creat) {
   int res = NIFFS_format(&fs);
@@ -160,7 +160,7 @@ TEST(func_creat) {
   TEST_CHECK_EQ(niffs_create(&fs, "test"), ERR_NIFFS_NAME_CONFLICT);
 
   return TEST_RES_OK;
-} TEST_END(func_creat)
+} TEST_END
 
 TEST(func_creat_full) {
   int res = NIFFS_format(&fs);
@@ -178,7 +178,7 @@ TEST(func_creat_full) {
   TEST_CHECK_EQ(res,  ERR_NIFFS_FULL);
 
   return TEST_RES_OK;
-} TEST_END(func_creat_full)
+} TEST_END
 
 TEST(func_fd) {
   int res = NIFFS_format(&fs);
@@ -197,7 +197,7 @@ TEST(func_fd) {
   TEST_CHECK_EQ(fd, ERR_NIFFS_OUT_OF_FILEDESCS);
 
   return TEST_RES_OK;
-} TEST_END(func_fd)
+} TEST_END
 
 TEST(func_delete) {
   int res = NIFFS_format(&fs);
@@ -208,7 +208,7 @@ TEST(func_delete) {
   TEST_CHECK_EQ(niffs_delete_page(&fs, 0), ERR_NIFFS_DELETING_DELETED_PAGE);
 
   return TEST_RES_OK;
-} TEST_END(func_delete)
+} TEST_END
 
 TEST(func_move) {
   int res = NIFFS_format(&fs);
@@ -221,7 +221,7 @@ TEST(func_move) {
   TEST_CHECK_EQ(niffs_move_page(&fs, 1, 0, 0, 0, NIFFS_FLAG_MOVE_KEEP), ERR_NIFFS_MOVING_TO_UNFREE_PAGE);
 
   return TEST_RES_OK;
-} TEST_END(func_move)
+} TEST_END
 
 TEST(func_open) {
   int res = NIFFS_format(&fs);
@@ -237,7 +237,7 @@ TEST(func_open) {
   TEST_CHECK(fd >= 0);
 
   return TEST_RES_OK;
-} TEST_END(func_open)
+} TEST_END
 
 TEST(func_append_read) {
   int res = NIFFS_format(&fs);
@@ -453,7 +453,7 @@ TEST(func_append_read) {
   TEST_CHECK_EQ(free_pages_clean - fs.free_pages, 1+1+3+2);
 
   return TEST_RES_OK;
-} TEST_END(func_append_read)
+} TEST_END
 
 TEST(func_modify_ohdr) {
   int res = NIFFS_format(&fs);
@@ -509,7 +509,7 @@ TEST(func_modify_ohdr) {
 
 
   return TEST_RES_OK;
-} TEST_END(func_modify_ohdr)
+} TEST_END
 
 TEST(func_modify_page) {
   int res = NIFFS_format(&fs);
@@ -565,7 +565,7 @@ TEST(func_modify_page) {
 
 
   return TEST_RES_OK;
-} TEST_END(func_modify_page)
+} TEST_END
 
 TEST(func_modify_pagespan) {
   int res = NIFFS_format(&fs);
@@ -621,7 +621,7 @@ TEST(func_modify_pagespan) {
 
 
   return TEST_RES_OK;
-} TEST_END(func_modify_pagespan)
+} TEST_END
 
 TEST(func_modify_pagespan_nobreak) {
   int res = NIFFS_format(&fs);
@@ -677,7 +677,7 @@ TEST(func_modify_pagespan_nobreak) {
 
 
   return TEST_RES_OK;
-} TEST_END(func_modify_pagespan_nobreak)
+} TEST_END
 
 TEST(func_modify_beyond) {
   int res = NIFFS_format(&fs);
@@ -733,7 +733,7 @@ TEST(func_modify_beyond) {
 
 
   return TEST_RES_OK;
-} TEST_END(func_modify_beyond)
+} TEST_END
 
 TEST(func_truncate) {
   int res = NIFFS_format(&fs);
@@ -852,7 +852,7 @@ TEST(func_truncate) {
   TEST_CHECK_EQ(fs.dele_pages, 1 + 2 + 2); // rewritten obj hdr + deleted page
 
   return TEST_RES_OK;
-} TEST_END(func_truncate)
+} TEST_END
 
 TEST(func_rename) {
   int res = NIFFS_format(&fs);
@@ -906,7 +906,7 @@ TEST(func_rename) {
   TEST_CHECK_EQ(niffs_rename(&fs, "new", "new2"), ERR_NIFFS_NAME_CONFLICT);
 
   return TEST_RES_OK;
-} TEST_END(func_rename)
+} TEST_END
 
 TEST(func_gc) {
   int res = NIFFS_format(&fs);
@@ -987,7 +987,7 @@ TEST(func_gc) {
   TEST_CHECK_EQ(ix, len);
 
   return TEST_RES_OK;
-} TEST_END(func_gc)
+} TEST_END
 
 TEST(func_gc_big_hog) {
   int res = NIFFS_format(&fs);
@@ -1034,7 +1034,7 @@ TEST(func_gc_big_hog) {
   NIFFS_DBG("ERA INF min:%i max:%i span:%i\n", era_min, era_max, ((era_max - era_min)*100)/era_max);
 
   return TEST_RES_OK;
-} TEST_END(func_gc_big_hog)
+} TEST_END
 
 TEST(func_gc_full) {
   int res = NIFFS_format(&fs);
@@ -1082,7 +1082,7 @@ TEST(func_gc_full) {
   TEST_CHECK_GE(fs.free_pages, fs.pages_per_sector);
 
   return TEST_RES_OK;
-} TEST_END(func_gc_full)
+} TEST_END
 
 TEST(func_gc_long_run) {
 #define TEST_CHECK_GC_LONG_RUN_FILES  10
@@ -1209,7 +1209,7 @@ TEST(func_gc_long_run) {
   NIFFS_DBG("ERA INF min:%i max:%i span:%i\n", era_min, era_max, ((era_max - era_min)*100)/era_max);
 
   return TEST_RES_OK;
-} TEST_END(func_gc_long_run)
+} TEST_END
 
 TEST(func_check_aborted_delete) {
   int res = NIFFS_format(&fs);
@@ -1255,7 +1255,7 @@ TEST(func_check_aborted_delete) {
   TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
 
   return TEST_RES_OK;
-} TEST_END(func_check_aborted_delete)
+} TEST_END
 
 TEST(func_check_orphans) {
   int res = NIFFS_format(&fs);
@@ -1296,7 +1296,7 @@ TEST(func_check_orphans) {
   TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
 
   return TEST_RES_OK;
-} TEST_END(func_check_orphans)
+} TEST_END
 
 TEST(func_check_aborted_append) {
   int res = NIFFS_format(&fs);
@@ -1352,7 +1352,7 @@ TEST(func_check_aborted_append) {
 
 
   return TEST_RES_OK;
-} TEST_END(func_check_aborted_append)
+} TEST_END
 
 TEST(func_check_aborted_modify) {
   int res = NIFFS_format(&fs);
@@ -1406,7 +1406,7 @@ TEST(func_check_aborted_modify) {
 
 
   return TEST_RES_OK;
-} TEST_END(func_check_aborted_modify)
+} TEST_END
 
 TEST(func_check_aborted_erase) {
   int res = NIFFS_format(&fs);
@@ -1421,7 +1421,40 @@ TEST(func_check_aborted_erase) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
   return TEST_RES_OK;
-} TEST_END(func_check_aborted_erase)
+} TEST_END
 
 
+SUITE_TESTS(niffs_func_tests)
+  ADD_TEST(func_dump)
+  ADD_TEST(func_info)
+  ADD_TEST(func_init_virgin)
+  ADD_TEST(func_format_virgin)
+  ADD_TEST(func_mount_clean)
+  ADD_TEST(func_mount_scrap)
+  ADD_TEST(func_find_free_page)
+  ADD_TEST(func_write_phdr)
+  ADD_TEST(func_write_phdr_fill)
+  ADD_TEST(func_creat)
+  ADD_TEST(func_creat_full)
+  ADD_TEST(func_fd)
+  ADD_TEST(func_delete)
+  ADD_TEST(func_move)
+  ADD_TEST(func_open)
+  ADD_TEST(func_append_read)
+  ADD_TEST(func_modify_ohdr)
+  ADD_TEST(func_modify_page)
+  ADD_TEST(func_modify_pagespan)
+  ADD_TEST(func_modify_pagespan_nobreak)
+  ADD_TEST(func_modify_beyond)
+  ADD_TEST(func_truncate)
+  ADD_TEST(func_rename)
+  ADD_TEST(func_gc)
+  ADD_TEST(func_gc_big_hog)
+  ADD_TEST(func_gc_full)
+  ADD_TEST(func_gc_long_run)
+  ADD_TEST(func_check_aborted_delete)
+  ADD_TEST(func_check_orphans)
+  ADD_TEST(func_check_aborted_append)
+  ADD_TEST(func_check_aborted_modify)
+  ADD_TEST(func_check_aborted_erase)
 SUITE_END(niffs_func_tests)

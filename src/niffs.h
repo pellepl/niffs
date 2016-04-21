@@ -178,8 +178,8 @@ int NIFFS_creat(niffs *fs, char *name, niffs_mode mode);
  * @param fs            the file system struct
  * @param path          the path of the new file
  * @param flags         the flags for the open command, can be combinations of
- *                      NIFFS_APPEND, NIFFS_TRUNC, NIFFS_CREAT, SPIFFS_RD_ONLY,
- *                      NIFFS_WR_ONLY, NIFFS_RDWR, NIFFS_DIRECT
+ *                      NIFFS_O_APPEND, NIFFS_O_TRUNC, NIFFS_O_CREAT, NIFFS_O_RDONLY,
+ *                      NIFFS_O_WRONLY, NIFFS_O_RDWR, NIFFS_O_DIRECT
  * @param mode          ignored, for posix compliance
  */
 int NIFFS_open(niffs *fs, char *name, u8_t flags, niffs_mode mode);
@@ -214,9 +214,9 @@ int NIFFS_read(niffs *fs, int fd, u8_t *dst, u32_t len);
  * @param fs            the file system struct
  * @param fh            the filehandle
  * @param offs          how much/where to move the offset
- * @param whence        if SPIFFS_SEEK_SET, the file offset shall be set to offset bytes
- *                      if SPIFFS_SEEK_CUR, the file offset shall be set to its current location plus offset
- *                      if SPIFFS_SEEK_END, the file offset shall be set to the size of the file plus offset
+ * @param whence        if NIFFS_SEEK_SET, the file offset shall be set to offset bytes
+ *                      if NIFFS_SEEK_CUR, the file offset shall be set to its current location plus offset
+ *                      if NIFFS_SEEK_END, the file offset shall be set to the size of the file plus offset
  */
 int NIFFS_lseek(niffs *fs, int fd, s32_t offs, int whence);
 
@@ -307,7 +307,7 @@ niffs_DIR *NIFFS_opendir(niffs *fs, char *name, niffs_DIR *d);
 int NIFFS_closedir(niffs_DIR *d);
 
 /**
- * Reads a directory into given spifs_dirent struct.
+ * Reads a directory into given niffs_dirent struct.
  * @param d             pointer to the directory stream
  * @param e             the dirent struct to be populated
  * @returns null if error or end of stream, else given dirent is returned

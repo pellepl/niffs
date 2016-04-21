@@ -20,13 +20,13 @@ static u32_t trand(void) {
 
 SUITE(niffs_run_tests)
 
-void setup(test *t) {
+static void setup(test *t) {
   (void)niffs_emul_init();
   NIFFS_format(&fs);
   NIFFS_mount(&fs);
 }
 
-void teardown(test *t) {
+static void teardown(test *t) {
   if (t->test_result != TEST_RES_OK) {
     NIFFS_dump(&fs);
   }
@@ -93,7 +93,7 @@ TEST(run_create_many_small)
   printf("\n");
   return TEST_RES_OK;
 }
-TEST_END(run_create_many_small)
+TEST_END
 
 TEST(run_create_many_medium)
 {
@@ -161,7 +161,7 @@ TEST(run_create_many_medium)
   printf("\n");
   return TEST_RES_OK;
 }
-TEST_END(run_create_many_medium)
+TEST_END
 
 TEST(run_create_many_large)
 {
@@ -229,7 +229,7 @@ TEST(run_create_many_large)
   printf("\n");
   return TEST_RES_OK;
 }
-TEST_END(run_create_many_large)
+TEST_END
 
 TEST(run_create_huge)
 {
@@ -293,7 +293,7 @@ TEST(run_create_huge)
   printf("\n");
   return TEST_RES_OK;
 }
-TEST_END(run_create_huge)
+TEST_END
 
 // loop:
 //  create random sized files until full
@@ -363,7 +363,7 @@ TEST(run_create_many_garbled)
   printf("\n");
   return TEST_RES_OK;
 }
-TEST_END(run_create_many_garbled)
+TEST_END
 
 // create constant file, never touched
 // loop:
@@ -438,7 +438,7 @@ TEST(run_create_many_garbled_one_constant)
   printf("\n");
   return TEST_RES_OK;
 }
-TEST_END(run_create_many_garbled_one_constant)
+TEST_END
 
 
 // aborted create, gc, rm test
@@ -667,7 +667,7 @@ TEST(run_create_many_garbled_one_constant_aborted)
 
   return TEST_RES_OK;
 }
-TEST_END(run_create_many_garbled_one_constant_aborted)
+TEST_END
 
 // aborted create, gc, rm, append test
 //
@@ -974,7 +974,7 @@ TEST(run_create_modify_append_some_garbled_one_constant_aborted)
 
   return TEST_RES_OK;
 }
-TEST_END(run_create_modify_append_some_garbled_one_constant_aborted)
+TEST_END
 
 
 // full system
@@ -1043,7 +1043,7 @@ TEST(run_full)
 
   return TEST_RES_OK;
 }
-TEST_END(run_full)
+TEST_END
 
 TEST(run_full_single_byte)
 {
@@ -1092,6 +1092,17 @@ TEST(run_full_single_byte)
 
   return TEST_RES_OK;
 }
-TEST_END(run_full_single_byte)
+TEST_END
 
+SUITE_TESTS(niffs_run_tests)
+  ADD_TEST(run_create_many_small)
+  ADD_TEST(run_create_many_medium)
+  ADD_TEST(run_create_many_large)
+  ADD_TEST(run_create_huge)
+  ADD_TEST(run_create_many_garbled)
+  ADD_TEST(run_create_many_garbled_one_constant)
+  ADD_TEST(run_create_many_garbled_one_constant_aborted)
+  ADD_TEST(run_create_modify_append_some_garbled_one_constant_aborted)
+  ADD_TEST(run_full)
+  ADD_TEST(run_full_single_byte)
 SUITE_END(niffs_run_tests)

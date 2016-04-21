@@ -12,10 +12,10 @@
 
 SUITE(niffs_cfg_tests)
 
-void setup(test *t) {
+static void setup(test *t) {
 }
 
-void teardown(test *t) {
+static void teardown(test *t) {
 }
 
 TEST(cfg_init_virgin) {
@@ -37,6 +37,9 @@ TEST(cfg_init_virgin) {
   res = niffs_emul_init();
   TEST_CHECK_EQ(res, NIFFS_OK);
   return TEST_RES_OK;
-} TEST_END(cfg_init_virgin)
+} TEST_END
 
+
+SUITE_TESTS(niffs_cfg_tests)
+  ADD_TEST(cfg_init_virgin)
 SUITE_END(niffs_cfg_tests)
