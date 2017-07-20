@@ -143,7 +143,7 @@
 #define _NIFFS_PIX_2_ADDR(_fs, _pix) (\
   _NIFFS_SECTOR_2_ADDR(_fs, _NIFFS_PIX_2_SECTOR(_fs, _pix)) +  \
   sizeof(niffs_sector_hdr) + \
-  _NIFFS_PIX_IN_SECTOR(_fs, _pix) * fs->page_size \
+  _NIFFS_PIX_IN_SECTOR(_fs, _pix) * (_fs)->page_size \
   )
 
 #if 0
