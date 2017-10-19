@@ -116,8 +116,6 @@
 #define _NIFFS_ALIGN __attribute__ (( aligned(NIFFS_WORD_ALIGN) ))
 #define _NIFFS_PACKED __attribute__ (( packed ))
 
-#define _NIFFS_NXT_CYCLE(_c) ((_c) >= 3 ? 0 : (_c)+1)
-
 // checks if page is free, i.e. not used at all
 #define _NIFFS_IS_FREE(_pg_hdr) (((_pg_hdr)->id.raw) == _NIFFS_PAGE_FREE_ID)
 // checks if page is deleted
@@ -146,13 +144,6 @@
   _NIFFS_PIX_IN_SECTOR(_fs, _pix) * (_fs)->page_size \
   )
 
-#if 0
-#define _NIFFS_ADDR_2_PIX(_fs, _addr) (\
-  (((u8_t *)(_addr) - _NIFFS_ADDR_2_SECTOR(_fs, _addr) * ((_fs)->sector_size) + sizeof(niffs_sector_hdr)) / (_fs)->page_size) + \
-  _NIFFS_ADDR_2_SECTOR(_fs, _addr) * (_fs)->pages_per_sector \
-  )
-#endif
-
 #define _NIFFS_SPIX_2_PDATA_LEN(_fs, _spix) \
   ((_fs)->page_size - sizeof(niffs_page_hdr) - ((_spix) == 0 ? sizeof(niffs_object_hdr) : 0))
 
@@ -167,16 +158,6 @@
 )
 
 #define _NIFFS_RD(_fs, _dst, _src, _len) do {niffs_memcpy((_dst), (_src), (_len));}while(0)
-#define _NIFFS_ALLO_PIX(_fs, _pix, _len) _NIFFS_PIX_2_ADDR(_fs, _pix)
-#define _NIFFS_ALLO_SECT(_fs, _s, _len) _NIFFS_SECTOR_2_ADDR(_fs, _s)
-#define _NIFFS_FREE(_fs, _addr)
-#define _NIFFS_FREE_RETURN(_fs, _addr, _res) do { \
-  _NIFFS_FREE(_fs, _addr); \
-  return (_res); \
-} while (0)
-#define _NIFFS_ERR_FREE_RETURN(_fs, _addr, _res) do { \
-  if ((_res) < NIFFS_OK) { _NIFFS_FREE_RETURN(_fs, _addr, _res); } \
-} while (0)
 
 #define _NIFFS_IS_ID_VALID(phdr) ((phdr)->id.obj_id != (niffs_obj_id)-1 && (phdr)-> id.obj_id != 0)
 #define _NIFFS_IS_FLAG_VALID(phdr) \
