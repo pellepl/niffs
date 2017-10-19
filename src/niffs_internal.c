@@ -1245,6 +1245,15 @@ int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_pages) {
   res = niffs_erase_sector(fs, cand.sector);
   if (res != NIFFS_OK) return res;
 
+  // move free cursor if necessary
+  if (_NIFFS_PIX_2_SECTOR(fs, fs->last_free_pix) == cand.sector) {
+    u32_t new_free_s = cand.sector+1;
+    if (new_free_s >= fs->sectors) {
+      new_free_s = 0;
+    }
+    fs->last_free_pix = _NIFFS_PIX_AT_SECTOR(fs, new_free_s);
+  }
+
   // update stats
   fs->dele_pages -= cand.dele_pages;
   fs->dele_pages -= cand.busy_pages; // this is added by moving all busy pages in erased sector
