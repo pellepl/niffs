@@ -81,55 +81,92 @@ typedef u16_t niffs_mode;
 // niffs file descriptor flags
 typedef u8_t niffs_fd_flags;
 
+/* file descriptor */
 typedef struct {
+  // object id
   niffs_obj_id obj_id;
+  // page index for object index
   niffs_page_ix obj_pix;
+  // file descriptor offset
   u32_t offs;
+  // page index for current file desc offset
   niffs_page_ix cur_pix;
+  // file descriptor flags
   niffs_fd_flags flags;
 } niffs_file_desc;
 
+/* fs struct */
 typedef struct {
-  // cfg
+  /* static cfg */
+  // physical address where fs resides
   u8_t *phys_addr;
+  // number of logical sectors
   u32_t sectors;
+  // logical sector size in bytes
   u32_t sector_size;
+  // logical page size in bytes
   u32_t page_size;
 
+  // work buffer
   u8_t *buf;
+  // work buffer length
   u32_t buf_len;
 
+  // HAL write function
   niffs_hal_write_f hal_wr;
+  // HAL erase function
   niffs_hal_erase_f hal_er;
 
-  // dyna
+  /* dynamics */
+  // pages per sector
   u32_t pages_per_sector;
+  // last seen free page index
   niffs_page_ix last_free_pix;
+  // whether mounted or not
   u8_t mounted;
+  // number of free pages
   u32_t free_pages;
+  // number of deleted pages
   u32_t dele_pages;
+  // file descriptor array
   niffs_file_desc *descs;
+  // number of file descriptors
   u32_t descs_len;
+  // max erase count
   u32_t max_era;
 } niffs;
 
 /* niffs file status struct */
 typedef struct {
+  // file object id
   niffs_obj_id obj_id;
+  // file size
   u32_t size;
+  // file name
   u8_t name[NIFFS_NAME_LEN];
+  // file type
+  u8_t type;
 } niffs_stat;
 
+/* niffs file directory entry struct */
 struct niffs_dirent {
+  // file object id
   niffs_obj_id obj_id;
+  // file name
   u8_t name[NIFFS_NAME_LEN];
+  // file size
   u32_t size;
+  // file index header whereabouts
   niffs_page_ix pix;
+  // file type
   u8_t type;
 };
 
+/*  niffs file directory struct */
 typedef struct {
+  // the actual fs
   niffs *fs;
+  // current search page index
   niffs_page_ix pix;
 } niffs_DIR;
 
