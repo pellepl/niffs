@@ -31,44 +31,48 @@
 /* If O_CREAT and O_EXCL are set, open() fails if the file exists. */
 #define NIFFS_O_EXCL                     (1<<6)
 
+#ifndef NIFFS_ERR_BASE
+#define NIFFS_ERR_BASE                      (11000)
+#endif
+
 
 #define NIFFS_OK                            0
-#define ERR_NIFFS_BAD_CONF                  -11001
-#define ERR_NIFFS_NOT_A_FILESYSTEM          -11002
-#define ERR_NIFFS_BAD_SECTOR                -11003
-#define ERR_NIFFS_DELETING_FREE_PAGE        -11004
-#define ERR_NIFFS_DELETING_DELETED_PAGE     -11005
-#define ERR_NIFFS_MOVING_FREE_PAGE          -11006
-#define ERR_NIFFS_MOVING_DELETED_PAGE       -11007
-#define ERR_NIFFS_MOVING_TO_UNFREE_PAGE     -11008
-#define ERR_NIFFS_MOVING_TO_SAME_PAGE       -11009
-#define ERR_NIFFS_MOVING_BAD_FLAG           -11010
-#define ERR_NIFFS_NO_FREE_PAGE              -11011
-#define ERR_NIFFS_SECTOR_UNFORMATTABLE      -11012
-#define ERR_NIFFS_NULL_PTR                  -11013
-#define ERR_NIFFS_NO_FREE_ID                -11014
-#define ERR_NIFFS_WR_PHDR_UNFREE_PAGE       -11015
-#define ERR_NIFFS_WR_PHDR_BAD_ID            -11016
-#define ERR_NIFFS_NAME_CONFLICT             -11017
-#define ERR_NIFFS_FULL                      -11018
-#define ERR_NIFFS_OUT_OF_FILEDESCS          -11019
-#define ERR_NIFFS_FILE_NOT_FOUND            -11020
-#define ERR_NIFFS_FILEDESC_CLOSED           -11021
-#define ERR_NIFFS_FILEDESC_BAD              -11022
-#define ERR_NIFFS_INCOHERENT_ID             -11023
-#define ERR_NIFFS_PAGE_NOT_FOUND            -11024
-#define ERR_NIFFS_END_OF_FILE               -11025
-#define ERR_NIFFS_MODIFY_BEYOND_FILE        -11026
-#define ERR_NIFFS_TRUNCATE_BEYOND_FILE      -11027
-#define ERR_NIFFS_NO_GC_CANDIDATE           -11028
-#define ERR_NIFFS_PAGE_DELETED              -11029
-#define ERR_NIFFS_PAGE_FREE                 -11030
-#define ERR_NIFFS_MOUNTED                   -11031
-#define ERR_NIFFS_NOT_MOUNTED               -11032
-#define ERR_NIFFS_NOT_WRITABLE              -11033
-#define ERR_NIFFS_NOT_READABLE              -11034
-#define ERR_NIFFS_FILE_EXISTS               -11035
-#define ERR_NIFFS_OVERFLOW                  -11036
+#define ERR_NIFFS_BAD_CONF                  -(NIFFS_ERR_BASE + 1)
+#define ERR_NIFFS_NOT_A_FILESYSTEM          -(NIFFS_ERR_BASE + 2)
+#define ERR_NIFFS_BAD_SECTOR                -(NIFFS_ERR_BASE + 3)
+#define ERR_NIFFS_DELETING_FREE_PAGE        -(NIFFS_ERR_BASE + 4)
+#define ERR_NIFFS_DELETING_DELETED_PAGE     -(NIFFS_ERR_BASE + 5)
+#define ERR_NIFFS_MOVING_FREE_PAGE          -(NIFFS_ERR_BASE + 6)
+#define ERR_NIFFS_MOVING_DELETED_PAGE       -(NIFFS_ERR_BASE + 7)
+#define ERR_NIFFS_MOVING_TO_UNFREE_PAGE     -(NIFFS_ERR_BASE + 8)
+#define ERR_NIFFS_MOVING_TO_SAME_PAGE       -(NIFFS_ERR_BASE + 9)
+#define ERR_NIFFS_MOVING_BAD_FLAG           -(NIFFS_ERR_BASE + 10)
+#define ERR_NIFFS_NO_FREE_PAGE              -(NIFFS_ERR_BASE + 11)
+#define ERR_NIFFS_SECTOR_UNFORMATTABLE      -(NIFFS_ERR_BASE + 12)
+#define ERR_NIFFS_NULL_PTR                  -(NIFFS_ERR_BASE + 13)
+#define ERR_NIFFS_NO_FREE_ID                -(NIFFS_ERR_BASE + 14)
+#define ERR_NIFFS_WR_PHDR_UNFREE_PAGE       -(NIFFS_ERR_BASE + 15)
+#define ERR_NIFFS_WR_PHDR_BAD_ID            -(NIFFS_ERR_BASE + 16)
+#define ERR_NIFFS_NAME_CONFLICT             -(NIFFS_ERR_BASE + 17)
+#define ERR_NIFFS_FULL                      -(NIFFS_ERR_BASE + 18)
+#define ERR_NIFFS_OUT_OF_FILEDESCS          -(NIFFS_ERR_BASE + 19)
+#define ERR_NIFFS_FILE_NOT_FOUND            -(NIFFS_ERR_BASE + 20)
+#define ERR_NIFFS_FILEDESC_CLOSED           -(NIFFS_ERR_BASE + 21)
+#define ERR_NIFFS_FILEDESC_BAD              -(NIFFS_ERR_BASE + 22)
+#define ERR_NIFFS_INCOHERENT_ID             -(NIFFS_ERR_BASE + 23)
+#define ERR_NIFFS_PAGE_NOT_FOUND            -(NIFFS_ERR_BASE + 24)
+#define ERR_NIFFS_END_OF_FILE               -(NIFFS_ERR_BASE + 25)
+#define ERR_NIFFS_MODIFY_BEYOND_FILE        -(NIFFS_ERR_BASE + 26)
+#define ERR_NIFFS_TRUNCATE_BEYOND_FILE      -(NIFFS_ERR_BASE + 27)
+#define ERR_NIFFS_NO_GC_CANDIDATE           -(NIFFS_ERR_BASE + 28)
+#define ERR_NIFFS_PAGE_DELETED              -(NIFFS_ERR_BASE + 29)
+#define ERR_NIFFS_PAGE_FREE                 -(NIFFS_ERR_BASE + 30)
+#define ERR_NIFFS_MOUNTED                   -(NIFFS_ERR_BASE + 31)
+#define ERR_NIFFS_NOT_MOUNTED               -(NIFFS_ERR_BASE + 32)
+#define ERR_NIFFS_NOT_WRITABLE              -(NIFFS_ERR_BASE + 33)
+#define ERR_NIFFS_NOT_READABLE              -(NIFFS_ERR_BASE + 34)
+#define ERR_NIFFS_FILE_EXISTS               -(NIFFS_ERR_BASE + 35)
+#define ERR_NIFFS_OVERFLOW                  -(NIFFS_ERR_BASE + 36)
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
 typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);
