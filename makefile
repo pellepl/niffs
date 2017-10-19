@@ -10,17 +10,6 @@ sourcedir = src
 builddir = build
 
 
-#############
-#
-# Build tools
-#
-#############
-
-CC = gcc $(CFLAGS)
-LD = ld
-GDB = gdb
-OBJCOPY = objcopy
-OBJDUMP = objdump
 MKDIR = mkdir -p
 
 ###############
@@ -40,6 +29,7 @@ CFILES_TEST = main.c \
 	niffs_run_tests.c \
 	testsuites.c \
 	testrunner.c
+	
 INCLUDE_DIRECTIVES = -I./${sourcedir} -I./${sourcedir}/default -I./${sourcedir}/test 
 CFLAGS_ALL = $(INCLUDE_DIRECTIVES) -DNIFFS_TEST_MAKE
 CFLAGS = $(CFLAGS_ALL)  -fprofile-arcs -ftest-coverage
@@ -48,6 +38,11 @@ COMPILEROPTIONS_EXTRA = -Wall \
 -Wpointer-arith -Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch \
 -Wshadow -Wcast-align -Wchar-subscripts -Winline -Wnested-externs\
 -Wredundant-decls
+		
+# address sanitization
+CFLAGS += -fsanitize=address
+LFLAGS += -fsanitize=address -fno-omit-frame-pointer -O
+LIBS += -lasan
 		
 ############
 #
@@ -70,50 +65,53 @@ ALLOBJFILES += $(OBJFILES) $(OBJFILES_TEST)
 DEPENDENCIES = $(DEPFILES) $(DEPFILES_TEST) 
 
 # link object files, create binary
-$(BINARY): $(ALLOBJFILES)
+${builddir}/$(BINARY): $(ALLOBJFILES)
 	@echo "... linking"
-	@${CC} $(CFLAGS) $(LINKEROPTIONS) -o ${builddir}/$(BINARY) $(ALLOBJFILES) $(LIBS)
+	@$(CC) $(CFLAGS) $(LINKEROPTIONS) $(LFLAGS) -o ${builddir}/$(BINARY) $(ALLOBJFILES) $(LIBS)
 
--include $(DEPENDENCIES)	   	
+ifneq ($(MAKECMDGOALS),clean)
+-include $(DEPENDENCIES)	
+endif
 
 # compile c files test
 $(OBJFILES_TEST) : ${builddir}/%.o:%.c
 		@echo "... compile $@"
-		@${CC} $(CFLAGS_ALL) -g -c -o $@ $<
+		@$(MKDIR) $(@D)
+		@$(CC) $(CFLAGS_ALL) -g -c -o $@ $<
 
 # make dependencies
 $(DEPFILES_TEST) : ${builddir}/%.d:%.c
 		@echo "... depend $@"; \
-		rm -f $@; \
-		${CC} $(CFLAGS_ALL) -M $< > $@.$$$$; \
+		$(RM) $@; \
+		$(MKDIR) $(@D); \
+		$(CC) $(CFLAGS_ALL) -M $< > $@.$$$$; \
 		sed 's,\($*\)\.o[ :]*, ${builddir}/\1.o $@ : ,g' < $@.$$$$ > $@; \
-		rm -f $@.$$$$
+		$(RM) $@.$$$$
 
 # compile c files
 $(OBJFILES) : ${builddir}/%.o:%.c
 		@echo "... compile $@"
-		@${CC} $(CFLAGS) $(COMPILEROPTIONS_EXTRA) -g -c -o $@ $<
+		@$(MKDIR) $(@D)
+		@$(CC) $(CFLAGS) $(COMPILEROPTIONS_EXTRA) -g -c -o $@ $<
 
 # make dependencies test
 $(DEPFILES) : ${builddir}/%.d:%.c
 		@echo "... depend $@"; \
-		rm -f $@; \
-		${CC} $(CFLAGS) -M $< > $@.$$$$; \
+		$(RM) $@; \
+		$(MKDIR) $(@D); \
+		$(CC) $(CFLAGS) -M $< > $@.$$$$; \
 		sed 's,\($*\)\.o[ :]*, ${builddir}/\1.o $@ : ,g' < $@.$$$$ > $@; \
-		rm -f $@.$$$$
+		$(RM) $@.$$$$
 
-all: mkdirs $(BINARY) test
-
-mkdirs:
-	-@${MKDIR} ${builddir}
+all: $(BINARY) test
 
 FILTER ?=
 
-test: $(BINARY)
+test: ${builddir}/$(BINARY)
 ifdef $(FILTER)
-		./build/$(BINARY)
+		${builddir}/$(BINARY)
 else
-		./build/$(BINARY) -f $(FILTER)
+		${builddir}//$(BINARY) -f $(FILTER)
 endif
 		@for cfile in $(CFILES); do \
 			gcov -o ${builddir} ${src}/$$cfile | \
@@ -121,15 +119,10 @@ endif
 			sed 'N;s/\n/ /'; \
 		done
 	
-test_failed: $(BINARY)
-		./build/$(BINARY) _tests_fail
+test-failed: ${builddir}/$(BINARY)
+		${builddir}/$(BINARY) _tests_fail
 	
 clean:
-	@echo ... removing build files in ${builddir}
-	@rm -f ${builddir}/*.o
-	@rm -f ${builddir}/*.d
-	@rm -f ${builddir}/*.gcov
-	@rm -f ${builddir}/*.gcno
-	@rm -f ${builddir}/*.gcda
-	@rm -f *.gcov
-	@rm -f ${builddir}/*.elf
+	@echo ... clean
+	@$(RM) -r ${builddir}
+	@$(RM) *.gcov

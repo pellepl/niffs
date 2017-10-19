@@ -107,9 +107,6 @@ typedef struct {
   niffs_file_desc *descs;
   u32_t descs_len;
   u32_t max_era;
-#ifdef NIFFS_RD_ALLO_TEST
-  u8_t rd_buf[256]; // TODO for test only
-#endif
 } niffs;
 
 /* niffs file status struct */
@@ -124,6 +121,7 @@ struct niffs_dirent {
   u8_t name[NIFFS_NAME_LEN];
   u32_t size;
   niffs_page_ix pix;
+  u8_t type;
 };
 
 typedef struct {
@@ -132,9 +130,23 @@ typedef struct {
 } niffs_DIR;
 
 /**
- * Initializes and configures the file system
+ * Initializes and configures the file system.
+ * The file system needs a ram work buffer being at least a logical page size
+ * big. In some cases, this needs to be extended. NIFFS will return
+ * ERR_NIFFS_BAD_CONF on bad configurations. If NIFFS_DBG is enabled, a
+ * descriptive message will also tell you what's wrong.
+ *
  * @param fs            the file system struct
- * TODO
+ * @param phys_addr     the starting address of the filesystem on flash
+ * @param sectors       number of sectors comprised by the filesystem
+ * @param sector_size   logical sector size
+ * @param page_size     logical page size
+ * @param buf           ram work buffer
+ * @param buf_len       ram work buffer length
+ * @param descs         ram file descriptor buffer
+ * @param file_desc_len number of file descriptors in buffer
+ * @param erase_f       HAL erase function
+ * @param write_f       HAL write function
  */
 int NIFFS_init(niffs *fs,
     u8_t *phys_addr,
@@ -151,6 +163,7 @@ int NIFFS_init(niffs *fs,
 
 /**
  * Mounts the filesystem
+ * @param fs            the file system struct
  */
 int NIFFS_mount(niffs *fs);
 
@@ -194,8 +207,8 @@ int NIFFS_open(niffs *fs, char *name, u8_t flags, niffs_mode mode);
  * @param ptr           ptr which is populated with adress to data
  * @param len           populated with valid data length
  */
-
 int NIFFS_read_ptr(niffs *fs, int fd, u8_t **ptr, u32_t *len);
+
 /**
  * Reads from given filehandle.
  * NB: consider using NIFFS_read_ptr instead. This will basically copy from your
@@ -287,7 +300,7 @@ int NIFFS_close(niffs *fs, int fd);
  * @param old           name of file to rename
  * @param new           new name of file
  */
-int NIFFS_rename(niffs *fs, char *old, char *new);
+int NIFFS_rename(niffs *fs, char *old_name, char *new_name);
 
 /**
  * Opens a directory stream corresponding to the given name.

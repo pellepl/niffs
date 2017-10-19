@@ -166,16 +166,10 @@
       (((_offs) - _NIFFS_SPIX_2_PDATA_LEN(_fs, 0)) % _NIFFS_SPIX_2_PDATA_LEN(_fs, 1)) \
 )
 
-#define _NIFFS_RD(_fs, _dst, _src, _len) do {memcpy((_dst), (_src), (_len));}while(0)
-#ifndef NIFFS_RD_ALLO_TEST
+#define _NIFFS_RD(_fs, _dst, _src, _len) do {niffs_memcpy((_dst), (_src), (_len));}while(0)
 #define _NIFFS_ALLO_PIX(_fs, _pix, _len) _NIFFS_PIX_2_ADDR(_fs, _pix)
 #define _NIFFS_ALLO_SECT(_fs, _s, _len) _NIFFS_SECTOR_2_ADDR(_fs, _s)
 #define _NIFFS_FREE(_fs, _addr)
-#else
-#define _NIFFS_ALLO_PIX(_fs, _pix, _len) niffs_alloc_read(_NIFFS_PIX_2_ADDR(_fs, _pix), _len)
-#define _NIFFS_ALLO_SECT(_fs, _s, _len) niffs_alloc_read(_NIFFS_SECTOR_2_ADDR(_fs, _s), _len)
-#define _NIFFS_FREE(_fs, _addr) niffs_alloc_free(_addr)
-#endif
 #define _NIFFS_FREE_RETURN(_fs, _addr, _res) do { \
   _NIFFS_FREE(_fs, _addr); \
   return (_res); \
@@ -191,6 +185,16 @@
 
 #define NIFFS_EXCL_SECT_NONE  (u32_t)-1
 #define NIFFS_UNDEF_LEN       (u32_t)-1
+
+#ifndef niffs_memcpy
+#define niffs_memcpy(_d, _s, _l) memcpy((_d), (_s), (_l))
+#endif
+#ifndef niffs_memset
+#define niffs_memset(_d, _v, _l) memset((_d), (_v), (_l))
+#endif
+#ifndef niffs_strncpy
+#define niffs_strncpy(_d, _s, _l) strncpy((_d), (_s), (_l))
+#endif
 
 typedef struct {
   _NIFFS_ALIGN niffs_erase_cnt era_cnt;
@@ -231,6 +235,7 @@ TESTATIC int niffs_erase_sector(niffs *fs, u32_t sector_ix);
 TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix, u8_t *data, u32_t len, niffs_flag force_flag);
 TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, u8_t *data, u32_t len);
 TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr);
+TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix);
 #endif
 
 int niffs_traverse(niffs *fs, niffs_page_ix pix_start, niffs_page_ix pix_end, niffs_visitor_f v, void *v_arg);
