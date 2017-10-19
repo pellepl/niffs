@@ -35,7 +35,6 @@
 #define NIFFS_ERR_BASE                      (11000)
 #endif
 
-
 #define NIFFS_OK                            0
 #define ERR_NIFFS_BAD_CONF                  -(NIFFS_ERR_BASE + 1)
 #define ERR_NIFFS_NOT_A_FILESYSTEM          -(NIFFS_ERR_BASE + 2)
