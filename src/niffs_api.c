@@ -91,7 +91,7 @@ int NIFFS_read(niffs *fs, int fd_ix, u8_t *dst, u32_t len) {
     if (res >= 0 && rlen == 0) res = ERR_NIFFS_END_OF_FILE;
     if (res >= 0) {
       u32_t clen = MIN(len, rlen);
-      memcpy(dst, rptr, clen);
+      niffs_memcpy(dst, rptr, clen);
       dst += clen;
       len -= clen;
       read_len += clen;
@@ -195,7 +195,7 @@ int NIFFS_fstat(niffs *fs, int fd_ix, niffs_stat *s) {
 
   s->obj_id = ohdr->phdr.id.obj_id;
   s->size = ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len;
-  strncpy((char *)s->name, (char *)ohdr->name, NIFFS_NAME_LEN);
+  niffs_strncpy((char *)s->name, (char *)ohdr->name, NIFFS_NAME_LEN);
 
   return NIFFS_OK;
 }
@@ -216,9 +216,9 @@ int NIFFS_close(niffs *fs, int fd) {
   return niffs_close(fs, fd);
 }
 
-int NIFFS_rename(niffs *fs, char *old, char *new) {
+int NIFFS_rename(niffs *fs, char *old_name, char *new_name) {
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
-  return niffs_rename(fs, old, new);
+  return niffs_rename(fs, old_name, new_name);
 }
 
 niffs_DIR *NIFFS_opendir(niffs *fs, char *name, niffs_DIR *d) {
@@ -244,7 +244,7 @@ static int niffs_readdir_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, v
       e->obj_id = ohdr->phdr.id.obj_id;
       e->pix = pix;
       e->size = ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len;
-      strncpy((char *)e->name, (char *)ohdr->name, NIFFS_NAME_LEN);
+      niffs_strncpy((char *)e->name, (char *)ohdr->name, NIFFS_NAME_LEN);
       return NIFFS_OK;
     }
   }

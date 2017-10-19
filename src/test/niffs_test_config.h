@@ -61,8 +61,9 @@ extern u8_t __dbg;
 #define NIFFS_TYPE_ERASE_COUNT_SIZE u16_t // use 16-bit sector erase counter
 #define NIFFS_DUMP                        // enable dumping
 #define NIFFS_DUMP_OUT(...)         printf(__VA_ARGS__)
-//#define NIFFS_EXPERIMENTAL_GC_DISTRIBUTED_SPARE_SECTOR  // let's be bold
-//#define NIFFS_RD_ALLO_TEST
+
+// enable linear features in test
+#define NIFFS_LINEAR                1
 
 #define NIFFS_ASSERT(x) do { \
   if (!(x)) { \
@@ -71,11 +72,6 @@ extern u8_t __dbg;
   } \
 } while (0)
 
-
-#ifdef NIFFS_RD_ALLO_TEST
-void *niffs_alloc_read(void *src, u32_t len);
-void niffs_alloc_free(void *addr);
-#endif
 
 // test internals
 

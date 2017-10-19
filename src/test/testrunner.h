@@ -89,7 +89,7 @@ typedef struct test_res_s {
   goto __fail_stop; \
 }
 #define TEST_CHECK_EQ(x, y) if ((x) != (y)) { \
-  printf("  TEST FAIL %s:%i, %i != %i\n", __FILE__, __LINE__, (x), (y)); \
+  printf("  TEST FAIL %s:%i, %i != %i\n", __FILE__, (int)__LINE__, (int)(x), (int)(y)); \
   goto __fail_stop; \
 }
 #define TEST_CHECK_NEQ(x, y) if ((x) == (y)) { \
