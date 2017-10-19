@@ -38,7 +38,7 @@ static int emul_hal_erase_f(u8_t *addr, u32_t len) {
   return NIFFS_OK;
 }
 
-static int emul_hal_write_f(u8_t *addr, u8_t *src, u32_t len) {
+static int emul_hal_write_f(u8_t *addr, const u8_t *src, u32_t len) {
   if (addr < &_flash[0]) return ERR_NIFFS_TEST_BAD_ADDR;
   if (addr+len >= &_flash[0] + EMUL_SECTORS * EMUL_SECTOR_SIZE) return ERR_NIFFS_TEST_BAD_ADDR;
   if (len == 0) return ERR_NIFFS_TEST_BAD_ADDR;

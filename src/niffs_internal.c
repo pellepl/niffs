@@ -90,16 +90,21 @@ int niffs_get_filedesc(niffs *fs, int fd_ix, niffs_file_desc **fd) {
   return NIFFS_OK;
 }
 
+typedef struct {
+  const char *conflict_name;
+} niffs_find_free_id_arg;
+
 static int niffs_find_free_id_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void *v_arg) {
   (void)pix;
+  niffs_find_free_id_arg *arg = (niffs_find_free_id_arg *)v_arg;
   if (!_NIFFS_IS_FREE(phdr) && !_NIFFS_IS_DELE(phdr)) {
     niffs_obj_id oid = phdr->id.obj_id;
     --oid;
     fs->buf[oid/8] |= 1<<(oid&7);
-    if (v_arg && phdr->id.spix == 0) {
+    if (arg->conflict_name && phdr->id.spix == 0) {
       // object header page
       niffs_object_hdr *ohdr = (niffs_object_hdr *)phdr;
-      if (strcmp((char *)v_arg, (char *)ohdr->name) == 0) {
+      if (strcmp(arg->conflict_name, (char *)ohdr->name) == 0) {
         return ERR_NIFFS_NAME_CONFLICT;
       }
     }
@@ -107,10 +112,11 @@ static int niffs_find_free_id_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *ph
   return NIFFS_VIS_CONT;
 }
 
-TESTATIC int niffs_find_free_id(niffs *fs, niffs_obj_id *oid, char *conflict_name) {
+TESTATIC int niffs_find_free_id(niffs *fs, niffs_obj_id *oid, const char *conflict_name) {
   if (oid == 0) return ERR_NIFFS_NULL_PTR;
   niffs_memset(fs->buf, 0, fs->buf_len);
-  int res = niffs_traverse(fs, 0, 0, niffs_find_free_id_v, (void *)conflict_name);
+  niffs_find_free_id_arg arg = {.conflict_name = conflict_name};
+  int res = niffs_traverse(fs, 0, 0, niffs_find_free_id_v, &arg);
 
   if (res != NIFFS_VIS_END) return res;
 
@@ -253,7 +259,7 @@ TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix) {
   return res;
 }
 
-TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix, u8_t *data, u32_t len, niffs_flag force_flag) {
+TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst_pix, const u8_t *data, u32_t len, niffs_flag force_flag) {
   if (src_pix == dst_pix) return ERR_NIFFS_MOVING_TO_SAME_PAGE;
 
   niffs_page_hdr *src_phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, src_pix);
@@ -317,7 +323,7 @@ TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst
   return res;
 }
 
-TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, u8_t *data, u32_t len) {
+TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, const u8_t *data, u32_t len) {
   niffs_page_hdr *orig_phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, pix);
 
   int res = NIFFS_OK;
@@ -357,7 +363,7 @@ TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr
 
 /////////////////////////////////// FILE /////////////////////////////////////
 
-int niffs_create(niffs *fs, char *name) {
+int niffs_create(niffs *fs, const char *name) {
   niffs_obj_id oid = 0;
   niffs_page_ix pix;
   int res;
@@ -381,7 +387,7 @@ int niffs_create(niffs *fs, char *name) {
   ohdr.phdr.id.obj_id = oid;
   ohdr.phdr.id.spix = 0;
   ohdr.len = NIFFS_UNDEF_LEN;
-  niffs_strncpy((char *)ohdr.name, (char *)name, NIFFS_NAME_LEN);
+  niffs_strncpy((char *)ohdr.name, name, NIFFS_NAME_LEN);
   res = niffs_write_page(fs, pix, &ohdr.phdr,
       (u8_t *)&ohdr + offsetof(niffs_object_hdr, len),
       sizeof(niffs_object_hdr) - sizeof(niffs_page_hdr));
@@ -393,7 +399,7 @@ int niffs_create(niffs *fs, char *name) {
 }
 
 typedef struct {
-  char *name;
+  const char *name;
   niffs_page_ix pix;
   niffs_obj_id oid;
   niffs_page_ix pix_mov;
@@ -431,7 +437,7 @@ static int niffs_open_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void
   return NIFFS_VIS_CONT;
 }
 
-int niffs_open(niffs *fs, char *name, niffs_fd_flags flags) {
+int niffs_open(niffs *fs, const char *name, niffs_fd_flags flags) {
   int fd_ix;
   int res = NIFFS_OK;
 
@@ -571,7 +577,7 @@ int niffs_seek(niffs *fs, int fd_ix, s32_t offset, u8_t whence) {
   return res;
 }
 
-int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
+int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
   int res = NIFFS_OK;
   niffs_file_desc *fd;
   res = niffs_get_filedesc(fs, fd_ix, &fd);
@@ -771,7 +777,7 @@ int niffs_append(niffs *fs, int fd_ix, u8_t *src, u32_t len) {
   return res;
 }
 
-int niffs_modify(niffs *fs, int fd_ix, u32_t offset, u8_t *src, u32_t len) {
+int niffs_modify(niffs *fs, int fd_ix, u32_t offset, const u8_t *src, u32_t len) {
   int res = NIFFS_OK;
   niffs_file_desc *fd;
   res = niffs_get_filedesc(fs, fd_ix, &fd);
@@ -985,7 +991,7 @@ int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
   return res;
 }
 
-int niffs_rename(niffs *fs, char *old_name, char *new_name) {
+int niffs_rename(niffs *fs, const char *old_name, const char *new_name) {
   niffs_page_ix dst_pix;
   niffs_page_ix src_pix;
   int res;

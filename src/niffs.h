@@ -74,7 +74,7 @@
 #define ERR_NIFFS_OVERFLOW                  -(NIFFS_ERR_BASE + 36)
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
-typedef int (* niffs_hal_write_f)(u8_t *addr, u8_t *src, u32_t len);
+typedef int (* niffs_hal_write_f)(u8_t *addr, const u8_t *src, u32_t len);
 // dummy type, for posix compliance
 typedef u16_t niffs_mode;
 // niffs file descriptor flags
@@ -224,7 +224,7 @@ int NIFFS_info(niffs *fs, s32_t *total, s32_t *used, u8_t *overflow);
  * @param name          the name of the new file
  * @param mode          ignored, for posix compliance
  */
-int NIFFS_creat(niffs *fs, char *name, niffs_mode mode);
+int NIFFS_creat(niffs *fs, const char *name, niffs_mode mode);
 
 /**
  * Opens/creates a file.
@@ -235,7 +235,7 @@ int NIFFS_creat(niffs *fs, char *name, niffs_mode mode);
  *                      NIFFS_O_WRONLY, NIFFS_O_RDWR, NIFFS_O_DIRECT
  * @param mode          ignored, for posix compliance
  */
-int NIFFS_open(niffs *fs, char *name, u8_t flags, niffs_mode mode);
+int NIFFS_open(niffs *fs, const char *name, u8_t flags, niffs_mode mode);
 
 /**
  * Returns a pointer directly to the flash where data resides, and how many
@@ -278,7 +278,7 @@ int NIFFS_lseek(niffs *fs, int fd, s32_t offs, int whence);
  * @param fs            the file system struct
  * @param name          the name of the file to remove
  */
-int NIFFS_remove(niffs *fs, char *name);
+int NIFFS_remove(niffs *fs, const char *name);
 
 /**
  * Removes a file by filehandle
@@ -295,7 +295,7 @@ int NIFFS_fremove(niffs *fs, int fd);
  * @param len           how much to write
  * @returns number of bytes written or error
  */
-int NIFFS_write(niffs *fs, int fd, u8_t *data, u32_t len);
+int NIFFS_write(niffs *fs, int fd, const u8_t *data, u32_t len);
 
 /**
  * Flushes all pending write operations from cache for given file
@@ -310,7 +310,7 @@ int NIFFS_fflush(niffs *fs, int fd);
  * @param path          the name of the file to stat
  * @param s             the stat struct to populate
  */
-int NIFFS_stat(niffs *fs, char *name, niffs_stat *s);
+int NIFFS_stat(niffs *fs, const char *name, niffs_stat *s);
 
 /**
  * Gets file status by filehandle
@@ -340,7 +340,7 @@ int NIFFS_close(niffs *fs, int fd);
  * @param old           name of file to rename
  * @param new           new name of file
  */
-int NIFFS_rename(niffs *fs, char *old_name, char *new_name);
+int NIFFS_rename(niffs *fs, const char *old_name, const char *new_name);
 
 /**
  * Opens a directory stream corresponding to the given name.
@@ -351,7 +351,7 @@ int NIFFS_rename(niffs *fs, char *old_name, char *new_name);
  * @param name          the name of the directory
  * @param d             pointer the directory stream to be populated
  */
-niffs_DIR *NIFFS_opendir(niffs *fs, char *name, niffs_DIR *d);
+niffs_DIR *NIFFS_opendir(niffs *fs, const char *name, niffs_DIR *d);
 
 /**
  * Closes a directory stream
