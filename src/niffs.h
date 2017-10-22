@@ -136,7 +136,7 @@ typedef struct {
   // number of file descriptors
   u32_t descs_len;
   // max erase count
-  u32_t max_era;
+  niffs_erase_cnt max_era;
 } niffs;
 
 /* niffs file status struct */

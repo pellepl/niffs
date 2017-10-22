@@ -4,6 +4,9 @@ static int niffs_ensure_free_pages(niffs *fs, u32_t pages);
 static int niffs_setup(niffs *fs);
 static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_page_ix *dst_pix);
 
+#define ERA_CNT_MIN_OF_LIMIT (((niffs_erase_cnt)-1)/4+1)
+#define ERA_CNT_MAX_OF_LIMIT (((niffs_erase_cnt)-1)-ERA_CNT_MIN_OF_LIMIT+1)
+
 //////////////////////////////////// BASE ////////////////////////////////////
 
 int niffs_traverse(niffs *fs, niffs_page_ix pix_start, niffs_page_ix pix_end, niffs_visitor_f v, void *v_arg) {
@@ -226,10 +229,24 @@ TESTATIC int niffs_find_page(niffs *fs, niffs_page_ix *pix, niffs_obj_id oid, ni
 TESTATIC int niffs_erase_sector(niffs *fs, u32_t sector_ix) {
   niffs_sector_hdr shdr;
   niffs_sector_hdr *target_shdr = (niffs_sector_hdr *)_NIFFS_SECTOR_2_ADDR(fs, sector_ix);
-  if (target_shdr->abra == _NIFFS_SECT_MAGIC(fs) && target_shdr->era_cnt != (niffs_erase_cnt)-1) {
+  if (target_shdr->abra == _NIFFS_SECT_MAGIC(fs)) {
+    // got magic, presume valid erase count
     shdr.era_cnt = target_shdr->era_cnt+1;
-    fs->max_era = MAX(shdr.era_cnt, fs->max_era);
+
+    if (shdr.era_cnt < target_shdr->era_cnt && fs->max_era > ERA_CNT_MAX_OF_LIMIT) {
+      // max_era = 0xf & era_cnt = 0x0 (era_cnt just wrapped)
+      fs->max_era = shdr.era_cnt;
+    } else {
+      if (fs->max_era < ERA_CNT_MIN_OF_LIMIT && shdr.era_cnt > ERA_CNT_MAX_OF_LIMIT) {
+        // e.g. max_era = 0x2 & era_cnt = 0xe
+        // pass, max_era less but wrapped
+      } else {
+        // normal case
+        fs->max_era = MAX(shdr.era_cnt, fs->max_era);
+      }
+    }
   } else {
+    // no magic, presume invalid erase count
     shdr.era_cnt = fs->max_era;
   }
   shdr.abra = _NIFFS_SECT_MAGIC(fs);
@@ -1146,7 +1163,11 @@ static int niffs_gc_find_candidate_sector(niffs *fs, niffs_gc_sector_cand *cand,
         p_busy++;
       }
     }
-    NIFFS_DBG("    gc: sector %2i era:%6i era_d:%4i free:%2i dele:%2i busy:%2i  -- ", sector, shdr_era_cnt, fs->max_era - shdr_era_cnt, p_free, p_dele, p_busy);
+
+    niffs_erase_cnt era_cnt_diff_typed = fs->max_era - shdr_era_cnt;
+    u32_t era_cnt_diff = (u32_t)era_cnt_diff_typed;
+
+    NIFFS_DBG("    gc: sector %2i era:%6i era_d:%4i free:%2i dele:%2i busy:%2i  -- ", sector, shdr_era_cnt, era_cnt_diff, p_free, p_dele, p_busy);
 
     // never gc a sector that is totally free
     if (p_free == fs->pages_per_sector) {
@@ -1168,8 +1189,6 @@ static int niffs_gc_find_candidate_sector(niffs *fs, niffs_gc_sector_cand *cand,
       NIFFS_DBG("full, not allowed\n");
       continue;
     }
-
-    u32_t era_cnt_diff = fs->max_era - shdr_era_cnt;
 
     // nb: this might select a sector being full with busy pages
     //     but having too low an erase count - this will free
@@ -1598,14 +1617,22 @@ static int niffs_setup(niffs *fs) {
   fs->max_era = 0;
   u32_t s;
   u32_t bad_sectors = 0;
+  niffs_erase_cnt max_era = 0;
+  niffs_erase_cnt min_era = (niffs_erase_cnt)-1;
 
   for (s = 0; s < fs->sectors; s++) {
     niffs_sector_hdr *shdr = (niffs_sector_hdr *)_NIFFS_SECTOR_2_ADDR(fs, s);
-    if (shdr->abra != _NIFFS_SECT_MAGIC(fs) || shdr->era_cnt == (niffs_erase_cnt)-1) {
+    if (shdr->abra != _NIFFS_SECT_MAGIC(fs)) {
       bad_sectors++;
       continue;
     }
-    fs->max_era = MAX(shdr->era_cnt, fs->max_era);
+    max_era = MAX(shdr->era_cnt, max_era);
+    min_era = MIN(shdr->era_cnt, min_era);
+  }
+  if (min_era < ERA_CNT_MIN_OF_LIMIT && max_era > ERA_CNT_MAX_OF_LIMIT) {
+    fs->max_era = min_era;
+  } else {
+    fs->max_era = max_era;
   }
 
   // we allow one bad sector only would we lose power during erase of a sector
@@ -1615,7 +1642,7 @@ static int niffs_setup(niffs *fs) {
 
   for (s = 0; s < fs->sectors; s++) {
     niffs_sector_hdr *shdr = (niffs_sector_hdr *)_NIFFS_SECTOR_2_ADDR(fs, s);
-    if (shdr->abra != _NIFFS_SECT_MAGIC(fs) || shdr->era_cnt == (niffs_erase_cnt)-1) {
+    if (shdr->abra != _NIFFS_SECT_MAGIC(fs)) {
       NIFFS_DBG("check : erasing uninitialized sector %i\n", s);
       int res = niffs_erase_sector(fs, s);
       if (res != NIFFS_OK) {
