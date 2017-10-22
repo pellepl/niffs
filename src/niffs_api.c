@@ -195,6 +195,7 @@ int NIFFS_fstat(niffs *fs, int fd_ix, niffs_stat *s) {
 
   s->obj_id = ohdr->phdr.id.obj_id;
   s->size = ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len;
+  s->type = ohdr->type;
   niffs_strncpy((char *)s->name, (char *)ohdr->name, NIFFS_NAME_LEN);
 
   return NIFFS_OK;
@@ -244,6 +245,7 @@ static int niffs_readdir_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, v
       e->obj_id = ohdr->phdr.id.obj_id;
       e->pix = pix;
       e->size = ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len;
+      e->type = ohdr->type;
       niffs_strncpy((char *)e->name, (char *)ohdr->name, NIFFS_NAME_LEN);
       return NIFFS_OK;
     }

@@ -111,10 +111,18 @@
 #define _NIFFS_FLAG_MOVING      ((niffs_flag)0)
 #define NIFFS_FLAG_MOVE_KEEP    ((niffs_flag)0xaa)
 
-#define _NIFFS_SECT_MAGIC(_fs)  (niffs_magic)(0xfee1c01d ^ (_fs)->page_size)
+#define _NIFFS_FTYPE_FILE       (-1)
+#define _NIFFS_FTYPE_LINFILE    (-2)
 
+// change of magic since file type introduction
+#define _NIFFS_SECT_MAGIC(_fs)  (niffs_magic)(0xfee1c001 ^ (_fs)->page_size)
+
+#ifndef _NIFFS_ALIGN
 #define _NIFFS_ALIGN __attribute__ (( aligned(NIFFS_WORD_ALIGN) ))
+#endif
+#ifndef _NIFFS_PACKED
 #define _NIFFS_PACKED __attribute__ (( packed ))
+#endif
 
 // checks if page is free, i.e. not used at all
 #define _NIFFS_IS_FREE(_pg_hdr) (((_pg_hdr)->id.raw) == _NIFFS_PAGE_FREE_ID)
@@ -192,15 +200,18 @@ typedef struct {
   };
 } _NIFFS_PACKED niffs_page_hdr_id;
 
+// keep member order, used in offsetof in internals
 typedef struct {
   _NIFFS_ALIGN niffs_page_hdr_id id;
   _NIFFS_ALIGN niffs_flag flag;
 } _NIFFS_PACKED niffs_page_hdr;
 
+// keep member order, used in offsetof in internals
 typedef struct {
   niffs_page_hdr phdr;
   _NIFFS_ALIGN u32_t len;
   _NIFFS_ALIGN u8_t name[NIFFS_NAME_LEN];
+  _NIFFS_ALIGN niffs_file_type type;
 }  _NIFFS_PACKED niffs_object_hdr;
 
 #define NIFFS_VIS_CONT        1

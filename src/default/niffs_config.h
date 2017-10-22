@@ -95,10 +95,6 @@
   ((busy) * NIFFS_GC_SCORE_BUSY)
 #endif
 
-// enable this define to have the spare free pages worth a sector distributed,
-// disable to keep the spare free pages within same sector
-//#define NIFFS_EXPERIMENTAL_GC_DISTRIBUTED_SPARE_SECTOR
-
 // type sizes, depend of the size of the filesystem and the size of the pages
 
 // must comprise NIFFS_OBJ_ID_BITS

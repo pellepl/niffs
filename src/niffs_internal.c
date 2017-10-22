@@ -387,6 +387,7 @@ int niffs_create(niffs *fs, const char *name) {
   ohdr.phdr.id.obj_id = oid;
   ohdr.phdr.id.spix = 0;
   ohdr.len = NIFFS_UNDEF_LEN;
+  ohdr.type = _NIFFS_FTYPE_FILE;
   niffs_strncpy((char *)ohdr.name, name, NIFFS_NAME_LEN);
   res = niffs_write_page(fs, pix, &ohdr.phdr,
       (u8_t *)&ohdr + offsetof(niffs_object_hdr, len),
@@ -1116,7 +1117,7 @@ typedef struct {
   u32_t busy_pages;
 } niffs_gc_sector_cand;
 
-static int niffs_gc_find_candidate_sector(niffs *fs, niffs_gc_sector_cand *cand, u8_t allow_full_page) {
+static int niffs_gc_find_candidate_sector(niffs *fs, niffs_gc_sector_cand *cand, u8_t allow_full_sector) {
   u32_t sector;
   u8_t found = 0;
 
@@ -1157,13 +1158,13 @@ static int niffs_gc_find_candidate_sector(niffs *fs, niffs_gc_sector_cand *cand,
       NIFFS_DBG("no room for movement\n");
       continue;
     }
-    // never select the sector containing then only free pages we've got
+    // never select the sector containing the only free pages we've got
     if (fs->free_pages > 0 && p_free == fs->free_pages) {
       NIFFS_DBG("contains the only free pages\n");
       continue;
     }
     // only gc full sectors if allowed
-    if (p_busy == fs->pages_per_sector && !allow_full_page) {
+    if (p_busy == fs->pages_per_sector && !allow_full_sector) {
       NIFFS_DBG("full, not allowed\n");
       continue;
     }
@@ -1199,9 +1200,9 @@ static int niffs_gc_find_candidate_sector(niffs *fs, niffs_gc_sector_cand *cand,
   return found ? NIFFS_OK : ERR_NIFFS_NO_GC_CANDIDATE;
 }
 
-int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_pages) {
+int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_sector) {
   niffs_gc_sector_cand cand;
-  int res = niffs_gc_find_candidate_sector(fs, &cand, allow_full_pages);
+  int res = niffs_gc_find_candidate_sector(fs, &cand, allow_full_sector);
   if (res != NIFFS_OK) return res;
 
   // move all busy pages within sector
@@ -1292,6 +1293,7 @@ static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, nif
     } else if (phdr->id.spix == 0 &&
         (((sizeof(niffs_span_ix) < 4 && ohdr->len != NIFFS_UNDEF_LEN && ohdr->len > (1 << (8*sizeof(niffs_span_ix))) * fs->page_size)) ||
         ohdr->len > fs->sector_size * (fs->sectors-1))) {
+      // TODO check if linear file
       // found an object header page with crazy size
       NIFFS_DBG("check : pix %04x bad length oid:%04x delete\n", pix, oid+1);
       res = niffs_delete_page(fs, pix);
@@ -1782,7 +1784,7 @@ void NIFFS_dump(niffs *fs) {
       if (!_NIFFS_IS_FREE(&ohdr->phdr) && !_NIFFS_IS_DELE(&ohdr->phdr)) {
         NIFFS_DUMP_OUT("  obj.id:%04x  sp.ix:%02x  ", ohdr->phdr.id.obj_id, ohdr->phdr.id.spix);
         if (ohdr->phdr.id.spix == 0 && _NIFFS_IS_ID_VALID(&ohdr->phdr)) {
-          NIFFS_DUMP_OUT("len:%08x  name:", ohdr->len);
+          NIFFS_DUMP_OUT("len:%08x  type:%02x  name:", ohdr->len, ohdr->type);
           int i;
           for (i = 0; i < NIFFS_NAME_LEN; i++) {
             if (ohdr->name[i] == 0) break;

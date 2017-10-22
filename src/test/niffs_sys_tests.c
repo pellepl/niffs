@@ -298,7 +298,7 @@ TEST(sys_list_dir)
   NIFFS_opendir(&fs, "/", &d);
   int found = 0;
   while ((pe = NIFFS_readdir(&d, pe))) {
-    printf("  %s [%04x] size:%i\n", pe->name, pe->obj_id, pe->size);
+    printf("  %s [%04x] size:%i type:%02x\n", pe->name, pe->obj_id, pe->size, pe->type);
     for (i = 0; i < file_cnt; i++) {
       if (strcmp(files[i], pe->name) == 0) {
         found++;

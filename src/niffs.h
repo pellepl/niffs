@@ -79,6 +79,8 @@ typedef int (* niffs_hal_write_f)(u8_t *addr, const u8_t *src, u32_t len);
 typedef u16_t niffs_mode;
 // niffs file descriptor flags
 typedef u8_t niffs_fd_flags;
+// niffs file type
+typedef u8_t niffs_file_type;
 
 /* file descriptor */
 typedef struct {
@@ -86,6 +88,8 @@ typedef struct {
   niffs_obj_id obj_id;
   // page index for object index
   niffs_page_ix obj_pix;
+  // file type
+  niffs_file_type type;
   // file descriptor offset
   u32_t offs;
   // page index for current file desc offset
@@ -144,7 +148,7 @@ typedef struct {
   // file name
   u8_t name[NIFFS_NAME_LEN];
   // file type
-  u8_t type;
+  niffs_file_type type;
 } niffs_stat;
 
 /* niffs file directory entry struct */
@@ -158,7 +162,7 @@ struct niffs_dirent {
   // file index header whereabouts
   niffs_page_ix pix;
   // file type
-  u8_t type;
+  niffs_file_type type;
 };
 
 /*  niffs file directory struct */
