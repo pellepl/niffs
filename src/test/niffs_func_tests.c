@@ -1430,15 +1430,15 @@ TEST(func_lin_alloc_virgin) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  res = niffs_linear_alloc_space(&fs, 1, &start_sect);
+  res = niffs_linear_find_space(&fs, 1, &start_sect);
   TEST_CHECK_EQ(res, NIFFS_OK);
   TEST_CHECK_EQ(start_sect, fs.sectors);
 
-  res = niffs_linear_alloc_space(&fs, fs.lin_sectors, &start_sect);
+  res = niffs_linear_find_space(&fs, fs.lin_sectors, &start_sect);
   TEST_CHECK_EQ(res, NIFFS_OK);
   TEST_CHECK_EQ(start_sect, fs.sectors);
 
-  res = niffs_linear_alloc_space(&fs, fs.lin_sectors+1, &start_sect);
+  res = niffs_linear_find_space(&fs, fs.lin_sectors+1, &start_sect);
   TEST_CHECK_EQ(res, ERR_NIFFS_LINEAR_NO_SPACE);
 
   return TEST_RES_OK;
@@ -1453,33 +1453,93 @@ TEST(func_lin_alloc_mknod) {
   fd = NIFFS_mknod_linear(&fs, "1_1", 0);
   TEST_CHECK_GE(fd, NIFFS_OK);
   NIFFS_close(&fs, fd);
-  res = niffs_linear_alloc_space(&fs, 1, &start_sect);
+  res = niffs_linear_find_space(&fs, 1, &start_sect);
   TEST_CHECK_EQ(res, NIFFS_OK);
   TEST_CHECK_EQ(start_sect, fs.sectors+1);
 
   fd = NIFFS_mknod_linear(&fs, "2_1", 0);
   TEST_CHECK_GE(fd, NIFFS_OK);
   NIFFS_close(&fs, fd);
-  res = niffs_linear_alloc_space(&fs, 1, &start_sect);
+  res = niffs_linear_find_space(&fs, 1, &start_sect);
   TEST_CHECK_EQ(res, NIFFS_OK);
   TEST_CHECK_EQ(start_sect, fs.sectors+1+1);
 
   fd = NIFFS_mknod_linear(&fs, "3_8", fs.sector_size*8-1);
   TEST_CHECK_GE(fd, NIFFS_OK);
   NIFFS_close(&fs, fd);
-  res = niffs_linear_alloc_space(&fs, 1, &start_sect);
+  res = niffs_linear_find_space(&fs, 1, &start_sect);
   TEST_CHECK_EQ(res, NIFFS_OK);
   TEST_CHECK_EQ(start_sect, fs.sectors+1+1+8);
 
   fd = NIFFS_mknod_linear(&fs, "4_1", fs.sector_size/2);
   TEST_CHECK_GE(fd, NIFFS_OK);
   NIFFS_close(&fs, fd);
-  res = niffs_linear_alloc_space(&fs, 1, &start_sect);
+  res = niffs_linear_find_space(&fs, 1, &start_sect);
   TEST_CHECK_EQ(res, NIFFS_OK);
   TEST_CHECK_EQ(start_sect, fs.sectors+1+1+8+1);
 
   fd = NIFFS_mknod_linear(&fs, "5_lots", fs.lin_sectors);
   TEST_CHECK_GE(fd, ERR_NIFFS_LINEAR_NO_SPACE);
+
+  return TEST_RES_OK;
+} TEST_END
+
+TEST(func_lin_write) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+  int fd;
+
+  const u32_t len = fs.sector_size*5;
+  u8_t *data = niffs_emul_create_data("linear", len);
+  TEST_CHECK(data);
+
+  fd = NIFFS_mknod_linear(&fs, "linear", 0);
+  TEST_CHECK_GE(fd, NIFFS_OK);
+  res = NIFFS_write(&fs, fd, data, len/2);
+  TEST_CHECK_EQ(res, len/2);
+
+  res = NIFFS_write(&fs, fd, &data[len/2], len/2);
+  TEST_CHECK_EQ(res, len/2);
+
+  res = NIFFS_close(&fs, fd);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  res = niffs_emul_verify_file(&fs, "linear");
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  return TEST_RES_OK;
+} TEST_END
+
+TEST(func_lin_overwrite) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+  int fd;
+
+  const u32_t len = fs.sector_size*5;
+  u8_t *data = niffs_emul_create_data("linear", len);
+  TEST_CHECK(data);
+
+  fd = NIFFS_mknod_linear(&fs, "linear", 0);
+  TEST_CHECK_GE(fd, NIFFS_OK);
+  res = NIFFS_write(&fs, fd, data, len);
+  TEST_CHECK_EQ(res, len);
+  res = NIFFS_close(&fs, fd);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  res = NIFFS_remove(&fs, "linear");
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  data = niffs_emul_create_data("linear2", len);
+  TEST_CHECK(data);
+  fd = NIFFS_mknod_linear(&fs, "linear2", 0);
+  TEST_CHECK_GE(fd, NIFFS_OK);
+  res = NIFFS_write(&fs, fd, data, len);
+  TEST_CHECK_EQ(res, len);
+  res = NIFFS_close(&fs, fd);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  res = niffs_emul_verify_file(&fs, "linear2");
+  TEST_CHECK_EQ(res, NIFFS_OK);
 
   return TEST_RES_OK;
 } TEST_END
@@ -1522,5 +1582,7 @@ SUITE_TESTS(niffs_func_tests)
 #if NIFFS_LINEAR_AREA
   ADD_TEST(func_lin_alloc_virgin)
   ADD_TEST(func_lin_alloc_mknod)
+  ADD_TEST(func_lin_write)
+  ADD_TEST(func_lin_overwrite)
 #endif
 SUITE_END(niffs_func_tests)

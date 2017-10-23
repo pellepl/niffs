@@ -89,7 +89,7 @@ int NIFFS_mknod_linear(niffs *fs, const char *name, u32_t resv_size) {
   // check free linear space, fetch starting sector
   u32_t lsix_start;
   u32_t resv_sects = (resv_size + fs->sector_size - 1) / fs->sector_size;
-  res = niffs_linear_alloc_space(fs, resv_sects, &lsix_start);
+  res = niffs_linear_find_space(fs, resv_sects, &lsix_start);
   if (res < 0) return res;
 
   int fd_ix = niffs_open(fs, name, flags);
