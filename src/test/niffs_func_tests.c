@@ -1423,6 +1423,28 @@ TEST(func_check_aborted_erase) {
   return TEST_RES_OK;
 } TEST_END
 
+#if NIFFS_LINEAR_AREA
+
+TEST(func_lin_alloc_virgin) {
+  u32_t start_sect;
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+
+  res = niffs_alloc_linear_space(&fs, 1, &start_sect);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(start_sect, fs.sectors);
+
+  res = niffs_alloc_linear_space(&fs, fs.lin_sectors, &start_sect);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(start_sect, fs.sectors);
+
+  res = niffs_alloc_linear_space(&fs, fs.lin_sectors+1, &start_sect);
+  TEST_CHECK_EQ(res, ERR_NIFFS_LINEAR_NO_SPACE);
+
+  return TEST_RES_OK;
+} TEST_END
+
+#endif //NIFFS_LINEAR_AREA
 
 SUITE_TESTS(niffs_func_tests)
   ADD_TEST(func_dump)
@@ -1457,4 +1479,7 @@ SUITE_TESTS(niffs_func_tests)
   ADD_TEST(func_check_aborted_append)
   ADD_TEST(func_check_aborted_modify)
   ADD_TEST(func_check_aborted_erase)
+#if NIFFS_LINEAR_AREA
+  ADD_TEST(func_lin_alloc_virgin)
+#endif
 SUITE_END(niffs_func_tests)

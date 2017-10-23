@@ -407,7 +407,9 @@ static int niffs_alloc_linear_space_v(niffs *fs, niffs_page_ix pix, niffs_page_h
         u32_t lsix = lfhdr->start_sector - fs->sectors;
         u32_t end_lsix = lsix + sects;
         while (lsix < end_lsix) {
-          fs->buf[lsix/8] &= ~(1 << (lsix&7));
+          NIFFS_DBG("lin_file alloc: oid:%04x name:%s occupies sector %i\n",
+              phdr->id.obj_id, ohdr->name, lsix + fs->sectors);
+          fs->buf[lsix/8] |= (1 << (lsix&7));
           lsix++;
         }
       }
@@ -417,10 +419,11 @@ static int niffs_alloc_linear_space_v(niffs *fs, niffs_page_ix pix, niffs_page_h
 }
 
 int niffs_alloc_linear_space(niffs *fs, u32_t sectors, u32_t *start_sector) {
-  niffs_memset(fs->buf, 0xff, fs->buf_len);
+  niffs_memset(fs->buf, 0x00, fs->buf_len);
   int res = niffs_traverse(fs, 0, 0, niffs_alloc_linear_space_v, 0);
   if (res != NIFFS_VIS_END) return res;
   res = NIFFS_OK;
+
   // allocate on first fit basis
   u8_t taken = 1;
   u32_t free_sect_start = -1;
@@ -446,7 +449,7 @@ int niffs_alloc_linear_space(niffs *fs, u32_t sectors, u32_t *start_sector) {
     }
   } // per free sector map bit
 
-  if (free_sect_range < sectors) {
+  if (free_sect_range < sectors || free_sect_start > fs->sectors + fs->lin_sectors) {
     NIFFS_DBG("lin_file alloc: %i free sector range not found\n", sectors);
     res = ERR_NIFFS_LINEAR_NO_SPACE;
   } else {
