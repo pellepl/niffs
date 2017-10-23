@@ -406,9 +406,9 @@ static int niffs_linear_alloc_space_v(niffs *fs, niffs_page_ix pix, niffs_page_h
         }
         u32_t lsix = lfhdr->start_sector - fs->sectors;
         u32_t end_lsix = lsix + sects;
+        NIFFS_DBG("lin_file alloc: oid:%04x name:%s occupies sectors %i--%i\n",
+            phdr->id.obj_id, ohdr->name, lsix+fs->sectors, end_lsix+fs->sectors);
         while (lsix < end_lsix) {
-          NIFFS_DBG("lin_file alloc: oid:%04x name:%s occupies sector %i\n",
-              phdr->id.obj_id, ohdr->name, lsix + fs->sectors);
           fs->buf[lsix/8] |= (1 << (lsix&7));
           lsix++;
         }
@@ -430,7 +430,7 @@ int niffs_linear_alloc_space(niffs *fs, u32_t sectors, u32_t *start_sector) {
   u32_t free_sect_range = 0;
   u32_t lsix;
   for (lsix = 0; lsix < fs->lin_sectors; lsix++) {
-    if ((fs->buf[lsix/8] & (1<<lsix&7)) == 0) {
+    if ((fs->buf[lsix/8] & (1<<(lsix&7))) == 0) {
       // found a free sector
       if (taken) {
         taken = 0;
@@ -460,7 +460,8 @@ int niffs_linear_alloc_space(niffs *fs, u32_t sectors, u32_t *start_sector) {
   return res;
 }
 
-int niffs_linear_check_erased(niffs *fs, u32_t sector) {
+#if 0 //TODO
+static int niffs_linear_check_erased(niffs *fs, u32_t sector) {
   // assume sectors always are on a 32 bit boundary
   u8_t *a8 = _NIFFS_SECTOR_2_ADDR(fs, sector);
   u32_t *a32 = (u32_t *)a8;
@@ -472,6 +473,7 @@ int niffs_linear_check_erased(niffs *fs, u32_t sector) {
   }
   return 0;
 }
+#endif
 
 #endif // NIFFS_LINEAR_AREA
 
@@ -516,6 +518,7 @@ int niffs_create(niffs *fs, const char *name, niffs_file_type type, void *meta) 
         (u8_t *)&hdr + sizeof(niffs_object_hdr),
         (u8_t *)lfhdr + sizeof(niffs_object_hdr),
         sizeof(niffs_linear_file_hdr) - sizeof(niffs_object_hdr));
+    xtra_meta_len = sizeof(niffs_linear_file_hdr) - sizeof(niffs_page_hdr);
     break;
   }
   default:
@@ -523,6 +526,7 @@ int niffs_create(niffs *fs, const char *name, niffs_file_type type, void *meta) 
     return ERR_NIFFS_BAD_CONF;
   }
 
+  NIFFS_DBG("        type:%02x xtra_meta_len:%i\n", type, xtra_meta_len);
   res = niffs_write_page(fs, pix, &hdr.ohdr.phdr,
       (u8_t *)&hdr.ohdr + offsetof(niffs_object_hdr, len),
       xtra_meta_len);
@@ -1902,6 +1906,7 @@ int NIFFS_format(niffs *fs) {
   }
 #if NIFFS_LINEAR_AREA
   for (s = fs->sectors; res == NIFFS_OK && s < fs->sectors+fs->lin_sectors; s++) {
+    NIFFS_DBG("erase : sector %i linear\n", s);
     res = fs->hal_er(_NIFFS_SECTOR_2_ADDR(fs, s), fs->sector_size);
     if (res != NIFFS_OK) return res;
   }

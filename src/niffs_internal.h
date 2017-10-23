@@ -215,7 +215,6 @@ typedef struct {
 }  _NIFFS_PACKED niffs_object_hdr;
 
 typedef struct {
-  niffs_page_hdr phdr;
   niffs_object_hdr ohdr;
   _NIFFS_ALIGN u32_t start_sector; // absolute index from fs start
   _NIFFS_ALIGN u32_t resv_sectors;

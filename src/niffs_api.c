@@ -78,7 +78,6 @@ int NIFFS_open(niffs *fs, const char *name, u8_t flags, niffs_mode mode) {
 #if NIFFS_LINEAR_AREA
 
 int NIFFS_mknod_linear(niffs *fs, const char *name, u32_t resv_size) {
-  (void)resv_size; //TODO
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
   u8_t flags = NIFFS_O_LINEAR | NIFFS_O_RDWR | NIFFS_O_APPEND;
   int res = NIFFS_OK;
@@ -105,10 +104,9 @@ int NIFFS_mknod_linear(niffs *fs, const char *name, u32_t resv_size) {
   if (res != NIFFS_OK) return res;
   fd_ix = niffs_open(fs, name, flags);
   if (fd_ix < 0) return fd_ix;
-
-
-  return res;
+  return fd_ix;
 }
+
 #endif // NIFFS_LINEAR_AREA
 
 int NIFFS_read_ptr(niffs *fs, int fd, u8_t **ptr, u32_t *len) {
