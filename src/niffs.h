@@ -30,9 +30,9 @@
 #define NIFFS_O_DIRECT                   (1<<5)
 /* If O_CREAT and O_EXCL are set, open() fails if the file exists. */
 #define NIFFS_O_EXCL                     (1<<6)
-/* If O_CREAT and O_CREAT_LINEAR is enabled, along with config NIFFS_LINEAR_AREA,
+/* If O_CREAT and O_LINEAR is enabled, along with config NIFFS_LINEAR_AREA,
    the created file will be */
-#define NIFFS_O_CREAT_LINEAR             (1<<7)
+#define NIFFS_O_LINEAR             (1<<7)
 
 #ifndef NIFFS_ERR_BASE
 #define NIFFS_ERR_BASE                      (11000)
@@ -258,6 +258,7 @@ int NIFFS_creat(niffs *fs, const char *name, niffs_mode mode);
  *                      to grow one sector only. However, if A is created with
  *                      resv_size of 10 sectors, B will be created on sector
  *                      x+10, giving A room to grow 10 sectors instead.
+ * @return file descriptor with flags O_LINEAR | O_RDWR | O_APPEND or error
  */
 int NIFFS_mknod_linear(niffs *fs, const char *name, u32_t resv_size);
 #endif

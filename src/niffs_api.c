@@ -23,11 +23,12 @@ int NIFFS_creat(niffs *fs, const char *name, niffs_mode mode) {
   (void)mode;
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
   int res;
-  res = niffs_create(fs, name, _NIFFS_FTYPE_FILE);
+  res = niffs_create(fs, name, _NIFFS_FTYPE_FILE, 0);
   return res;
 }
 
 int NIFFS_open(niffs *fs, const char *name, u8_t flags, niffs_mode mode) {
+  // TODO linear
   (void)mode;
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
   int res = NIFFS_OK;
@@ -35,7 +36,7 @@ int NIFFS_open(niffs *fs, const char *name, u8_t flags, niffs_mode mode) {
   if (fd_ix < 0) {
     // file not found
     if (fd_ix == ERR_NIFFS_FILE_NOT_FOUND && (flags & NIFFS_O_CREAT)) {
-      res = niffs_create(fs, name, _NIFFS_FTYPE_FILE);
+      res = niffs_create(fs, name, _NIFFS_FTYPE_FILE, 0);
       if (res == NIFFS_OK) {
         fd_ix = niffs_open(fs, name, flags);
       } else {
@@ -65,7 +66,7 @@ int NIFFS_open(niffs *fs, const char *name, u8_t flags, niffs_mode mode) {
         (void)niffs_close(fs, fd_ix);
         return res;
       }
-      res = niffs_create(fs, name, _NIFFS_FTYPE_FILE);
+      res = niffs_create(fs, name, _NIFFS_FTYPE_FILE, 0);
       if (res != NIFFS_OK) return res;
       fd_ix = niffs_open(fs, name, flags);
     }
@@ -75,31 +76,40 @@ int NIFFS_open(niffs *fs, const char *name, u8_t flags, niffs_mode mode) {
 }
 
 #if NIFFS_LINEAR_AREA
+
 int NIFFS_mknod_linear(niffs *fs, const char *name, u32_t resv_size) {
   (void)resv_size; //TODO
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
-  u8_t flags = NIFFS_O_CREAT_LINEAR | NIFFS_O_RDWR;
+  u8_t flags = NIFFS_O_LINEAR | NIFFS_O_RDWR | NIFFS_O_APPEND;
   int res = NIFFS_OK;
+
+  // check free linear space, fetch starting sector
+  u32_t lsix_start;
+  u32_t resv_sects = (resv_size + fs->sector_size - 1) / fs->sector_size;
+  res = niffs_linear_alloc_space(fs, resv_sects, &lsix_start);
+  if (res < 0) return res;
+
   int fd_ix = niffs_open(fs, name, flags);
-  if (fd_ix < 0) {
-    // file not found
-    if (fd_ix == ERR_NIFFS_FILE_NOT_FOUND) {
-      res = niffs_create(fs, name, _NIFFS_FTYPE_LINFILE);
-      if (res == NIFFS_OK) {
-        fd_ix = niffs_open(fs, name, flags);
-      } else {
-        fd_ix = res;
-      }
-    }
-    res = fd_ix;
-  } else {
-    // file found
+  if (fd_ix >= 0) {
+    // file exists
     (void)niffs_close(fs, fd_ix);
     return ERR_NIFFS_FILE_EXISTS;
   }
+  if (fd_ix != ERR_NIFFS_FILE_NOT_FOUND) {
+    // some other error
+    return fd_ix;
+  }
+  // create linear file meta header
+  niffs_linear_file_hdr lfhdr = {.start_sector = lsix_start, .resv_sectors = resv_sects};
+  res = niffs_create(fs, name, _NIFFS_FTYPE_LINFILE, &lfhdr);
+  if (res != NIFFS_OK) return res;
+  fd_ix = niffs_open(fs, name, flags);
+  if (fd_ix < 0) return fd_ix;
+
+
   return res;
 }
-#endif
+#endif // NIFFS_LINEAR_AREA
 
 int NIFFS_read_ptr(niffs *fs, int fd, u8_t **ptr, u32_t *len) {
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;

@@ -382,7 +382,7 @@ TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr
 
 #if NIFFS_LINEAR_AREA
 
-static int niffs_alloc_linear_space_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void *v_arg) {
+static int niffs_linear_alloc_space_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void *v_arg) {
   (void)v_arg;
   if (_NIFFS_IS_FLAG_VALID(phdr) && !_NIFFS_IS_FREE(phdr) && !_NIFFS_IS_DELE(phdr)) {
     if (_NIFFS_IS_OBJ_HDR(phdr)) {
@@ -418,9 +418,9 @@ static int niffs_alloc_linear_space_v(niffs *fs, niffs_page_ix pix, niffs_page_h
   return NIFFS_VIS_CONT;
 }
 
-int niffs_alloc_linear_space(niffs *fs, u32_t sectors, u32_t *start_sector) {
+int niffs_linear_alloc_space(niffs *fs, u32_t sectors, u32_t *start_sector) {
   niffs_memset(fs->buf, 0x00, fs->buf_len);
-  int res = niffs_traverse(fs, 0, 0, niffs_alloc_linear_space_v, 0);
+  int res = niffs_traverse(fs, 0, 0, niffs_linear_alloc_space_v, 0);
   if (res != NIFFS_VIS_END) return res;
   res = NIFFS_OK;
 
@@ -460,11 +460,24 @@ int niffs_alloc_linear_space(niffs *fs, u32_t sectors, u32_t *start_sector) {
   return res;
 }
 
+int niffs_linear_check_erased(niffs *fs, u32_t sector) {
+  // assume sectors always are on a 32 bit boundary
+  u8_t *a8 = _NIFFS_SECTOR_2_ADDR(fs, sector);
+  u32_t *a32 = (u32_t *)a8;
+  u32_t slen = fs->sector_size;
+  while (slen >= 4) {
+    if (*a32 != 0xffffffff) return 1;
+    a32++;
+    slen -= 4;
+  }
+  return 0;
+}
+
 #endif // NIFFS_LINEAR_AREA
 
 /////////////////////////////////// FILE /////////////////////////////////////
 
-int niffs_create(niffs *fs, const char *name, niffs_file_type type) {
+int niffs_create(niffs *fs, const char *name, niffs_file_type type, void *meta) {
   niffs_obj_id oid = 0;
   niffs_page_ix pix;
   int res;
@@ -483,16 +496,36 @@ int niffs_create(niffs *fs, const char *name, niffs_file_type type) {
   NIFFS_DBG("create: pix %04x oid:%04x name:%s\n", pix, oid, name);
 
   // write page header & clean object header
-  niffs_object_hdr ohdr;
-  ohdr.phdr.flag = _NIFFS_FLAG_CLEAN;
-  ohdr.phdr.id.obj_id = oid;
-  ohdr.phdr.id.spix = 0;
-  ohdr.len = NIFFS_UNDEF_LEN;
-  ohdr.type = type;
-  niffs_strncpy((char *)ohdr.name, name, NIFFS_NAME_LEN);
-  res = niffs_write_page(fs, pix, &ohdr.phdr,
-      (u8_t *)&ohdr + offsetof(niffs_object_hdr, len),
-      sizeof(niffs_object_hdr) - sizeof(niffs_page_hdr));
+  niffs_super_hdr hdr;
+  hdr.ohdr.phdr.flag = _NIFFS_FLAG_CLEAN;
+  hdr.ohdr.phdr.id.obj_id = oid;
+  hdr.ohdr.phdr.id.spix = 0;
+  hdr.ohdr.len = NIFFS_UNDEF_LEN;
+  hdr.ohdr.type = type;
+  niffs_strncpy((char *)hdr.ohdr.name, name, NIFFS_NAME_LEN);
+
+  u32_t xtra_meta_len = 0;
+  switch (type) {
+  case _NIFFS_FTYPE_FILE:
+    xtra_meta_len = sizeof(niffs_object_hdr) - sizeof(niffs_page_hdr);
+    break;
+  case _NIFFS_FTYPE_LINFILE: {
+    NIFFS_ASSERT(meta);
+    niffs_linear_file_hdr *lfhdr = (niffs_linear_file_hdr *)meta;
+    niffs_memcpy(
+        (u8_t *)&hdr + sizeof(niffs_object_hdr),
+        (u8_t *)lfhdr + sizeof(niffs_object_hdr),
+        sizeof(niffs_linear_file_hdr) - sizeof(niffs_object_hdr));
+    break;
+  }
+  default:
+    NIFFS_ASSERT(0);
+    return ERR_NIFFS_BAD_CONF;
+  }
+
+  res = niffs_write_page(fs, pix, &hdr.ohdr.phdr,
+      (u8_t *)&hdr.ohdr + offsetof(niffs_object_hdr, len),
+      xtra_meta_len);
 
   if (res != NIFFS_OK) return res;
   fs->free_pages--;
@@ -703,9 +736,15 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
     // no need to allocate a new page, just fill in existing file
   } else {
     // one extra for new object header
-    u32_t needed_pages = _NIFFS_OFFS_2_SPIX(fs, len + file_offs) - _NIFFS_OFFS_2_SPIX(fs, file_offs) +
-        (_NIFFS_OFFS_2_PDATA_OFFS(fs, len + file_offs) == 0 ? -1 : 0) +
-        (file_offs == 0 ? 0 : 1);
+    u32_t needed_pages;
+    if (fd->type == _NIFFS_FTYPE_LINFILE) {
+      // linears always only have one page in the ordinary fs
+      needed_pages = (file_offs == 0 ? 0 : 1);
+    } else {
+      needed_pages = _NIFFS_OFFS_2_SPIX(fs, len + file_offs) - _NIFFS_OFFS_2_SPIX(fs, file_offs) +
+          (_NIFFS_OFFS_2_PDATA_OFFS(fs, len + file_offs) == 0 ? -1 : 0) +
+          (file_offs == 0 ? 0 : 1);
+    }
     res = niffs_ensure_free_pages(fs, needed_pages);
   }
   if (res) return res;
