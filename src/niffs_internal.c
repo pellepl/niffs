@@ -512,8 +512,18 @@ int niffs_create(niffs *fs, const char *name, niffs_file_type type, void *meta) 
     xtra_meta_len = sizeof(niffs_object_hdr) - sizeof(niffs_page_hdr);
     break;
   case _NIFFS_FTYPE_LINFILE: {
-    NIFFS_ASSERT(meta);
-    niffs_linear_file_hdr *lfhdr = (niffs_linear_file_hdr *)meta;
+    niffs_linear_file_hdr local_lfhdr;
+    niffs_linear_file_hdr *lfhdr;
+    if (meta == 0) {
+      u32_t lsix_start;
+      res = niffs_linear_alloc_space(fs, 1, &lsix_start);
+      if (res < 0) return res;
+      local_lfhdr.start_sector = lsix_start;
+      local_lfhdr.resv_sectors = 1;
+      lfhdr = &local_lfhdr;
+    } else {
+      lfhdr = (niffs_linear_file_hdr *)meta;
+    }
     niffs_memcpy(
         (u8_t *)&hdr + sizeof(niffs_object_hdr),
         (u8_t *)lfhdr + sizeof(niffs_object_hdr),
@@ -654,7 +664,11 @@ int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
   u32_t rem_page = _NIFFS_SPIX_2_PDATA_LEN(fs, phdr->id.spix) - _NIFFS_OFFS_2_PDATA_OFFS(fs, fd->offs);
   u32_t avail_data;
   if (fd->type == _NIFFS_FTYPE_LINFILE) {
+#if !NIFFS_LINEAR_AREA
+    return ERR_NIFFS_BAD_CONF;
+#else
     avail_data = rem_tot;
+#endif
   } else {
     avail_data = MIN(rem_tot, rem_page);
   }
@@ -731,6 +745,7 @@ int niffs_seek(niffs *fs, int fd_ix, s32_t offset, u8_t whence) {
 }
 
 int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
+  // TODO linear
   int res = NIFFS_OK;
   niffs_file_desc *fd;
   res = niffs_get_filedesc(fs, fd_ix, &fd);
@@ -1064,6 +1079,7 @@ static int niffs_remove_obj_id_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *p
 }
 
 int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
+  // TODO linear
   int res = NIFFS_OK;
 
   niffs_file_desc *fd;
