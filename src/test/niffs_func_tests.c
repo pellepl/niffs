@@ -155,9 +155,9 @@ TEST(func_creat) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  TEST_CHECK_EQ(niffs_create(&fs, 0), ERR_NIFFS_NULL_PTR);
-  TEST_CHECK_EQ(niffs_create(&fs, "test"), NIFFS_OK);
-  TEST_CHECK_EQ(niffs_create(&fs, "test"), ERR_NIFFS_NAME_CONFLICT);
+  TEST_CHECK_EQ(niffs_create(&fs, 0, _NIFFS_FTYPE_FILE), ERR_NIFFS_NULL_PTR);
+  TEST_CHECK_EQ(niffs_create(&fs, "test", _NIFFS_FTYPE_FILE), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_create(&fs, "test", _NIFFS_FTYPE_FILE), ERR_NIFFS_NAME_CONFLICT);
 
   return TEST_RES_OK;
 } TEST_END
@@ -170,11 +170,11 @@ TEST(func_creat_full) {
   for (i = 0; i < (fs.sectors-1) * fs.pages_per_sector; i++) {
     char fname[16];
     sprintf(fname, "t%i", i);
-    res = niffs_create(&fs, fname);
+    res = niffs_create(&fs, fname, _NIFFS_FTYPE_FILE);
     TEST_CHECK_EQ(res,  NIFFS_OK);
   }
 
-  res = niffs_create(&fs, "overflow");
+  res = niffs_create(&fs, "overflow", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  ERR_NIFFS_FULL);
 
   return TEST_RES_OK;
@@ -184,7 +184,7 @@ TEST(func_fd) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  TEST_CHECK_EQ(niffs_create(&fs, "test"), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_create(&fs, "test", _NIFFS_FTYPE_FILE), NIFFS_OK);
   int fd;
   int fd_pre = -1;
   u32_t i;
@@ -203,7 +203,7 @@ TEST(func_delete) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
   TEST_CHECK_EQ(niffs_delete_page(&fs, 0), ERR_NIFFS_DELETING_FREE_PAGE);
-  TEST_CHECK_EQ(niffs_create(&fs, "moo"), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_create(&fs, "moo", _NIFFS_FTYPE_FILE), NIFFS_OK);
   TEST_CHECK_EQ(niffs_delete_page(&fs, 0), NIFFS_OK);
   TEST_CHECK_EQ(niffs_delete_page(&fs, 0), ERR_NIFFS_DELETING_DELETED_PAGE);
 
@@ -215,7 +215,7 @@ TEST(func_move) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
   TEST_CHECK_EQ(niffs_move_page(&fs, 0, 0, 0, 0, NIFFS_FLAG_MOVE_KEEP), ERR_NIFFS_MOVING_TO_SAME_PAGE);
   TEST_CHECK_EQ(niffs_move_page(&fs, 0, 1, 0, 0, NIFFS_FLAG_MOVE_KEEP), ERR_NIFFS_MOVING_FREE_PAGE);
-  TEST_CHECK_EQ(niffs_create(&fs, "moo"), NIFFS_OK);
+  TEST_CHECK_EQ(niffs_create(&fs, "moo", _NIFFS_FTYPE_FILE), NIFFS_OK);
   TEST_CHECK_EQ(niffs_move_page(&fs, 0, 1, 0, 0, NIFFS_FLAG_MOVE_KEEP), NIFFS_OK);
   TEST_CHECK_EQ(niffs_move_page(&fs, 0, 1, 0, 0, NIFFS_FLAG_MOVE_KEEP), ERR_NIFFS_MOVING_DELETED_PAGE);
   TEST_CHECK_EQ(niffs_move_page(&fs, 1, 0, 0, 0, NIFFS_FLAG_MOVE_KEEP), ERR_NIFFS_MOVING_TO_UNFREE_PAGE);
@@ -230,7 +230,7 @@ TEST(func_open) {
   int fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
   TEST_CHECK_EQ(fd, ERR_NIFFS_FILE_NOT_FOUND);
 
-  res = niffs_create(&fs, "test");
+  res = niffs_create(&fs, "test", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   fd = niffs_open(&fs, "test", NIFFS_O_RDWR);
@@ -245,7 +245,7 @@ TEST(func_append_read) {
 
   u32_t free_pages_clean = fs.free_pages;
 
-  res = niffs_create(&fs, "test");
+  res = niffs_create(&fs, "test", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, almost a page
@@ -459,7 +459,7 @@ TEST(func_modify_ohdr) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  res = niffs_create(&fs, "modify");
+  res = niffs_create(&fs, "modify", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, one page
@@ -515,7 +515,7 @@ TEST(func_modify_page) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  res = niffs_create(&fs, "modify");
+  res = niffs_create(&fs, "modify", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, two pages
@@ -571,7 +571,7 @@ TEST(func_modify_pagespan) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  res = niffs_create(&fs, "modify");
+  res = niffs_create(&fs, "modify", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, two pages
@@ -627,7 +627,7 @@ TEST(func_modify_pagespan_nobreak) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  res = niffs_create(&fs, "modify");
+  res = niffs_create(&fs, "modify", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, four pages
@@ -683,7 +683,7 @@ TEST(func_modify_beyond) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  res = niffs_create(&fs, "modify");
+  res = niffs_create(&fs, "modify", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, one page
@@ -739,7 +739,7 @@ TEST(func_truncate) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  res = niffs_create(&fs, "trunc");
+  res = niffs_create(&fs, "trunc", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, three pages
@@ -858,7 +858,7 @@ TEST(func_rename) {
   int res = NIFFS_format(&fs);
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
-  res = niffs_create(&fs, "orig");
+  res = niffs_create(&fs, "orig", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   // append to empty file, three pages
@@ -900,7 +900,7 @@ TEST(func_rename) {
 
   TEST_CHECK_EQ(niffs_rename(&fs, "orig", "new2"), ERR_NIFFS_FILE_NOT_FOUND);
 
-  res = niffs_create(&fs, "new2");
+  res = niffs_create(&fs, "new2", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
 
   TEST_CHECK_EQ(niffs_rename(&fs, "new", "new2"), ERR_NIFFS_NAME_CONFLICT);
@@ -915,7 +915,7 @@ TEST(func_gc) {
   for (i = 0; i < (fs.sectors-1) * fs.pages_per_sector; i++) {
     char fname[16];
     sprintf(fname, "t%i", i);
-    res = niffs_create(&fs, fname);
+    res = niffs_create(&fs, fname, _NIFFS_FTYPE_FILE);
     TEST_CHECK_EQ(res,  NIFFS_OK);
     u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0);
     u8_t *data = niffs_emul_create_data(fname, len);
@@ -926,7 +926,7 @@ TEST(func_gc) {
     TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
   }
 
-  res = niffs_create(&fs, "overflow");
+  res = niffs_create(&fs, "overflow", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res, ERR_NIFFS_FULL);
 
   TEST_CHECK_EQ(fs.free_pages, fs.pages_per_sector);
@@ -937,7 +937,7 @@ TEST(func_gc) {
   TEST_CHECK_EQ(niffs_truncate(&fs, fd, 0), NIFFS_OK);
   TEST_CHECK_EQ(niffs_close(&fs, fd), NIFFS_OK);
 
-  res = niffs_create(&fs, "overflow");
+  res = niffs_create(&fs, "overflow", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res, NIFFS_OK);
 
   TEST_CHECK_EQ(fs.free_pages, fs.pages_per_sector);
@@ -994,7 +994,7 @@ TEST(func_gc_big_hog) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
   // create one hog file two sectors big
-  res = niffs_create(&fs, "bighog");
+  res = niffs_create(&fs, "bighog", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * (2*fs.pages_per_sector-1);
   u8_t *data = niffs_emul_create_data("bighog", len);
@@ -1015,7 +1015,7 @@ TEST(func_gc_big_hog) {
     for (i = 0; i < (fs.sectors-2) * fs.pages_per_sector; i++) {
       char fname[16];
       sprintf(fname, "t%i_%i", i, needed_gc_runs_to_move_stalled_sector);
-      res = niffs_create(&fs, fname);
+      res = niffs_create(&fs, fname, _NIFFS_FTYPE_FILE);
       TEST_CHECK_EQ(res,  NIFFS_OK);
       int fd = niffs_open(&fs, fname, NIFFS_O_RDWR);
       TEST_CHECK(fd >= 0);
@@ -1147,7 +1147,7 @@ TEST(func_gc_long_run) {
           ix++;
           if (ix >= file_to_create_ix) {
             sprintf(name, "name%i", i);
-            res = niffs_create(&fs, name);
+            res = niffs_create(&fs, name, _NIFFS_FTYPE_FILE);
             TEST_CHECK_EQ(res, NIFFS_OK);
 
             int fd = niffs_open(&fs, name, NIFFS_O_RDWR);
@@ -1216,7 +1216,7 @@ TEST(func_check_aborted_delete) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
   // create one big file two sectors big
-  res = niffs_create(&fs, "undel");
+  res = niffs_create(&fs, "undel", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * (2*fs.pages_per_sector-1);
   u8_t *data = niffs_emul_create_data("undel", len);
@@ -1228,7 +1228,7 @@ TEST(func_check_aborted_delete) {
   u32_t written_pre = fs.sectors * fs.pages_per_sector - fs.free_pages - fs.dele_pages;
 
   // create one small file two pages big
-  res = niffs_create(&fs, "noorphan");
+  res = niffs_create(&fs, "noorphan", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
   len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1);
   data = niffs_emul_create_data("noorphan", len);
@@ -1262,7 +1262,7 @@ TEST(func_check_orphans) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
   // create one big file two sectors big
-  res = niffs_create(&fs, "orphan");
+  res = niffs_create(&fs, "orphan", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
   u32_t len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * (2*fs.pages_per_sector-1);
   u8_t *data = niffs_emul_create_data("orphan", len);
@@ -1275,7 +1275,7 @@ TEST(func_check_orphans) {
   u32_t written_pre = fs.sectors * fs.pages_per_sector - fs.free_pages - fs.dele_pages;
 
   // create one small file two pages big
-  res = niffs_create(&fs, "noorphan");
+  res = niffs_create(&fs, "noorphan", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
   len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1);
   data = niffs_emul_create_data("noorphan", len);
@@ -1303,7 +1303,7 @@ TEST(func_check_aborted_append) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
   // create file
-  res = niffs_create(&fs, "abortapp");
+  res = niffs_create(&fs, "abortapp", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
   u32_t orig_len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0);
   u8_t *orig_data = niffs_emul_create_data("abortapp", orig_len);
@@ -1359,7 +1359,7 @@ TEST(func_check_aborted_modify) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
 
   // create file
-  res = niffs_create(&fs, "abortapp");
+  res = niffs_create(&fs, "abortapp", _NIFFS_FTYPE_FILE);
   TEST_CHECK_EQ(res,  NIFFS_OK);
   u32_t orig_len = _NIFFS_SPIX_2_PDATA_LEN(&fs, 0) + _NIFFS_SPIX_2_PDATA_LEN(&fs, 1) * fs.pages_per_sector;
   u8_t *orig_data = niffs_emul_create_data("abortapp", orig_len);

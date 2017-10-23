@@ -30,6 +30,8 @@ typedef signed char s8_t;
 #define TESTATIC
 // emulate 16 sectors
 #define EMUL_SECTORS            16
+// emulate 16 lienar sectors
+#define EMUL_LIN_SECTORS        16
 // each sector is 1024 bytes
 #define EMUL_SECTOR_SIZE        1024
 // use max 4 filedescriptors
@@ -63,7 +65,7 @@ extern u8_t __dbg;
 #define NIFFS_DUMP_OUT(_f, ...)     printf(_f, ## __VA_ARGS__)
 
 // enable linear features in test
-#define NIFFS_LINEAR                1
+#define NIFFS_LINEAR_AREA           1
 
 #define NIFFS_ASSERT(x) do { \
   if (!(x)) { \

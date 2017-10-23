@@ -111,8 +111,8 @@
 #define _NIFFS_FLAG_MOVING      ((niffs_flag)0)
 #define NIFFS_FLAG_MOVE_KEEP    ((niffs_flag)0xaa)
 
-#define _NIFFS_FTYPE_FILE       (-1)
-#define _NIFFS_FTYPE_LINFILE    (-2)
+#define _NIFFS_FTYPE_FILE       (0)
+#define _NIFFS_FTYPE_LINFILE    (1)
 
 // change of magic since file type introduction
 #define _NIFFS_SECT_MAGIC(_fs)  (niffs_magic)(0xfee1c001 ^ (_fs)->page_size)
@@ -214,6 +214,13 @@ typedef struct {
   _NIFFS_ALIGN niffs_file_type type;
 }  _NIFFS_PACKED niffs_object_hdr;
 
+typedef struct {
+  niffs_page_hdr phdr;
+  niffs_object_hdr ohdr;
+  _NIFFS_ALIGN u32_t start_sector; // absolute index from fs start
+  _NIFFS_ALIGN u32_t resv_sectors;
+} _NIFFS_PACKED niffs_linear_file_hdr;
+
 #define NIFFS_VIS_CONT        1
 #define NIFFS_VIS_END         2
 
@@ -232,7 +239,7 @@ TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix);
 
 int niffs_traverse(niffs *fs, niffs_page_ix pix_start, niffs_page_ix pix_end, niffs_visitor_f v, void *v_arg);
 int niffs_get_filedesc(niffs *fs, int fd_ix, niffs_file_desc **fd);
-int niffs_create(niffs *fs, const char *name);
+int niffs_create(niffs *fs, const char *name, niffs_file_type type);
 int niffs_open(niffs *fs, const char *name, niffs_fd_flags flags);
 int niffs_close(niffs *fs, int fd_ix);
 int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail);
@@ -245,5 +252,7 @@ int niffs_rename(niffs *fs, const char *old_name, const char *new_name);
 int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_pages);
 
 int niffs_chk(niffs *fs);
+
+int niffs_alloc_linear_space(niffs *fs, u32_t sectors, u32_t *start_sector);
 
 #endif /* NIFFS_INTERNAL_H_ */

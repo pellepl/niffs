@@ -378,9 +378,90 @@ TESTATIC int niffs_write_phdr(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr
 }
 #endif
 
+//////////////////////////////// LINEAR FILES ////////////////////////////////
+
+#if NIFFS_LINEAR_AREA
+
+static int niffs_alloc_linear_space_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void *v_arg) {
+  (void)v_arg;
+  if (_NIFFS_IS_FLAG_VALID(phdr) && !_NIFFS_IS_FREE(phdr) && !_NIFFS_IS_DELE(phdr)) {
+    if (_NIFFS_IS_OBJ_HDR(phdr)) {
+      niffs_object_hdr *ohdr = (niffs_object_hdr *)phdr;
+      if (ohdr->type == _NIFFS_FTYPE_LINFILE) {
+        // check linear files only
+        // figure out how many sectors this linear file occopy
+        niffs_linear_file_hdr *lfhdr = (niffs_linear_file_hdr *)phdr;
+        u32_t file_len = lfhdr->ohdr.len == NIFFS_UNDEF_LEN ? 0 : lfhdr->ohdr.len;
+        u32_t resv_sects = lfhdr->resv_sectors;
+        u32_t file_sects = (file_len + fs->sector_size - 1) / fs->sector_size;
+        u32_t sects = MAX(resv_sects, file_sects);
+        sects = MAX(1, sects);
+        if (sects > fs->lin_sectors) {
+          // length oob, do not let this file contaminate the free sector map
+          // delete this file silently
+          (void)niffs_delete_page(fs, pix);
+          NIFFS_DBG("lin_file alloc: pix %04x oid:%04x name:%s bad length %i sectors, deleting\n",
+              pix, phdr->id.obj_id, ohdr->name, sects);
+          return NIFFS_VIS_CONT;
+        }
+        u32_t lsix = lfhdr->start_sector - fs->sectors;
+        u32_t end_lsix = lsix + sects;
+        while (lsix < end_lsix) {
+          fs->buf[lsix/8] &= ~(1 << (lsix&7));
+          lsix++;
+        }
+      }
+    }
+  }
+  return NIFFS_VIS_CONT;
+}
+
+int niffs_alloc_linear_space(niffs *fs, u32_t sectors, u32_t *start_sector) {
+  niffs_memset(fs->buf, 0xff, fs->buf_len);
+  int res = niffs_traverse(fs, 0, 0, niffs_alloc_linear_space_v, 0);
+  if (res != NIFFS_VIS_END) return res;
+  res = NIFFS_OK;
+  // allocate on first fit basis
+  u8_t taken = 1;
+  u32_t free_sect_start = -1;
+  u32_t free_sect_range = 0;
+  u32_t lsix;
+  for (lsix = 0; lsix < fs->lin_sectors; lsix++) {
+    if ((fs->buf[lsix/8] & (1<<lsix&7)) == 0) {
+      // found a free sector
+      if (taken) {
+        taken = 0;
+        free_sect_start = lsix;
+        free_sect_range = 1;
+      } else {
+        free_sect_range++;
+      }
+      if (free_sect_range >= sectors) {
+        // found a range being ok
+        break;
+      }
+    } else {
+      // found a full sector
+      taken = 1;
+    }
+  } // per free sector map bit
+
+  if (free_sect_range < sectors) {
+    NIFFS_DBG("lin_file alloc: %i free sector range not found\n", sectors);
+    res = ERR_NIFFS_LINEAR_NO_SPACE;
+  } else {
+    *start_sector = free_sect_start + fs->sectors;
+    NIFFS_DBG("lin_file alloc: %i free sector range found @ sector %i\n", sectors, *start_sector);
+  }
+
+  return res;
+}
+
+#endif // NIFFS_LINEAR_AREA
+
 /////////////////////////////////// FILE /////////////////////////////////////
 
-int niffs_create(niffs *fs, const char *name) {
+int niffs_create(niffs *fs, const char *name, niffs_file_type type) {
   niffs_obj_id oid = 0;
   niffs_page_ix pix;
   int res;
@@ -404,7 +485,7 @@ int niffs_create(niffs *fs, const char *name) {
   ohdr.phdr.id.obj_id = oid;
   ohdr.phdr.id.spix = 0;
   ohdr.len = NIFFS_UNDEF_LEN;
-  ohdr.type = _NIFFS_FTYPE_FILE;
+  ohdr.type = type;
   niffs_strncpy((char *)ohdr.name, name, NIFFS_NAME_LEN);
   res = niffs_write_page(fs, pix, &ohdr.phdr,
       (u8_t *)&ohdr + offsetof(niffs_object_hdr, len),
@@ -422,6 +503,7 @@ typedef struct {
   niffs_obj_id oid;
   niffs_page_ix pix_mov;
   niffs_obj_id oid_mov;
+  niffs_file_type type;
 } niffs_open_arg;
 
 static int niffs_open_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void *v_arg) {
@@ -439,7 +521,7 @@ static int niffs_open_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void
           if (res != NIFFS_OK) return res;
           arg->oid_mov = 0;
         }
-
+        arg->type = ohdr->type;
         if (_NIFFS_IS_MOVI(phdr)) {
           arg->oid_mov = ohdr->phdr.id.obj_id;
           arg->pix_mov = pix;
@@ -488,6 +570,7 @@ int niffs_open(niffs *fs, const char *name, niffs_fd_flags flags) {
   fd->obj_id = arg.oid;
   fd->obj_pix = arg.pix;
   fd->cur_pix = arg.pix;
+  fd->type = arg.type;
   fd->flags = flags;
 
   return res == NIFFS_OK ? fd_ix : res;
@@ -804,6 +887,9 @@ int niffs_modify(niffs *fs, int fd_ix, u32_t offset, const u8_t *src, u32_t len)
   if ((fd->flags & NIFFS_O_WRONLY) == 0) {
     return ERR_NIFFS_NOT_WRITABLE;
   }
+  if (fd->type == _NIFFS_FTYPE_LINFILE) {
+    return ERR_NIFFS_LINEAR_FILE; // only append and full delete is allowed for linfiles
+  }
 
   if (len == 0) return NIFFS_OK;
   niffs_object_hdr *orig_ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
@@ -928,6 +1014,9 @@ int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
 
   if ((fd->flags & NIFFS_O_WRONLY) == 0) {
     return ERR_NIFFS_NOT_WRITABLE;
+  }
+  if (fd->type == _NIFFS_FTYPE_LINFILE && new_len != 0) {
+    return ERR_NIFFS_LINEAR_FILE; // only append and full delete is allowed for linfiles
   }
 
   niffs_page_ix orig_ohdr_pix = fd->obj_pix;
@@ -1669,7 +1758,7 @@ static int niffs_setup(niffs *fs) {
 
 int NIFFS_init(niffs *fs, u8_t *phys_addr, u32_t sectors, u32_t sector_size, u32_t page_size,
     u8_t *buf, u32_t buf_len, niffs_file_desc *descs, u32_t file_desc_len,
-    niffs_hal_erase_f erase_f, niffs_hal_write_f write_f) {
+    niffs_hal_erase_f erase_f, niffs_hal_write_f write_f, u32_t lin_sectors) {
   fs->phys_addr = phys_addr;
   fs->sectors = sectors;
   fs->sector_size = sector_size;
@@ -1732,6 +1821,17 @@ int NIFFS_init(niffs *fs, u8_t *phys_addr, u32_t sectors, u32_t sector_size, u32
 
   fs->pages_per_sector = pages_per_sector;
 
+#if NIFFS_LINEAR_AREA
+  if (lin_sectors > buf_len*8) {
+    // when scanning for free linear space, each bit in workbuffer represents one sector
+    NIFFS_DBG("conf  : too many linear sectors, maximum is %i\n", buf_len*8);
+    return ERR_NIFFS_BAD_CONF;
+  }
+  fs->lin_sectors = lin_sectors;
+#else
+  (void)lin_sectors;
+#endif
+
   NIFFS_DBG("page size req:         %i\n", page_size);
   NIFFS_DBG("actual page size:      %i\n", fs->page_size);
   NIFFS_DBG("num unique obj ids:    %i\n", (1<<NIFFS_OBJ_ID_BITS)-2);
@@ -1758,6 +1858,12 @@ int NIFFS_format(niffs *fs) {
       res = ERR_NIFFS_SECTOR_UNFORMATTABLE;
     }
   }
+#if NIFFS_LINEAR_AREA
+  for (s = fs->sectors; res == NIFFS_OK && s < fs->sectors+fs->lin_sectors; s++) {
+    res = fs->hal_er(_NIFFS_SECTOR_2_ADDR(fs, s), fs->sector_size);
+    if (res != NIFFS_OK) return res;
+  }
+#endif
   return res;
 }
 

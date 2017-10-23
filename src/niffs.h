@@ -30,6 +30,9 @@
 #define NIFFS_O_DIRECT                   (1<<5)
 /* If O_CREAT and O_EXCL are set, open() fails if the file exists. */
 #define NIFFS_O_EXCL                     (1<<6)
+/* If O_CREAT and O_CREAT_LINEAR is enabled, along with config NIFFS_LINEAR_AREA,
+   the created file will be */
+#define NIFFS_O_CREAT_LINEAR             (1<<7)
 
 #ifndef NIFFS_ERR_BASE
 #define NIFFS_ERR_BASE                      (11000)
@@ -72,6 +75,8 @@
 #define ERR_NIFFS_NOT_READABLE              -(NIFFS_ERR_BASE + 34)
 #define ERR_NIFFS_FILE_EXISTS               -(NIFFS_ERR_BASE + 35)
 #define ERR_NIFFS_OVERFLOW                  -(NIFFS_ERR_BASE + 36)
+#define ERR_NIFFS_LINEAR_FILE               -(NIFFS_ERR_BASE + 37)
+#define ERR_NIFFS_LINEAR_NO_SPACE           -(NIFFS_ERR_BASE + 38)
 
 typedef int (* niffs_hal_erase_f)(u8_t *addr, u32_t len);
 typedef int (* niffs_hal_write_f)(u8_t *addr, const u8_t *src, u32_t len);
@@ -109,6 +114,10 @@ typedef struct {
   u32_t sector_size;
   // logical page size in bytes
   u32_t page_size;
+#if NIFFS_LINEAR_AREA
+  // number of linear sectors
+  u32_t lin_sectors;
+#endif
 
   // work buffer
   u8_t *buf;
@@ -191,6 +200,9 @@ typedef struct {
  * @param file_desc_len number of file descriptors in buffer
  * @param erase_f       HAL erase function
  * @param write_f       HAL write function
+ * @param lin_sectors   Ignored if NIFFS_LINEAR_AREA is 0. Otherwise, allocates
+ *                      lin_sectors of space for the linear area. This space
+ *                      will be allotted after the dynamic fs.
  */
 int NIFFS_init(niffs *fs,
     u8_t *phys_addr,
@@ -202,7 +214,8 @@ int NIFFS_init(niffs *fs,
     niffs_file_desc *descs,
     u32_t file_desc_len,
     niffs_hal_erase_f erase_f,
-    niffs_hal_write_f write_f
+    niffs_hal_write_f write_f,
+    u32_t lin_sectors
     );
 
 /**
@@ -229,6 +242,25 @@ int NIFFS_info(niffs *fs, s32_t *total, s32_t *used, u8_t *overflow);
  * @param mode          ignored, for posix compliance
  */
 int NIFFS_creat(niffs *fs, const char *name, niffs_mode mode);
+
+#if NIFFS_LINEAR_AREA
+/**
+ * Creates a new file in the linear area.
+ * @param fs            the file system struct
+ * @param name          the name of the new file
+ * @param resv_size     Hint to the filesystem how large this file will be in
+ *                      bytes. May be 0 if not known.
+ *                      As linear files cannot be chunked up by pages, they
+ *                      will be placed after each other on medium. For example,
+ *                      when creating linear file A it will be placed on
+ *                      sector x. If creating linear file B directly afterwards,
+ *                      B will be placed on sector x+1. This constricts file A
+ *                      to grow one sector only. However, if A is created with
+ *                      resv_size of 10 sectors, B will be created on sector
+ *                      x+10, giving A room to grow 10 sectors instead.
+ */
+int NIFFS_mknod_linear(niffs *fs, const char *name, u32_t resv_size);
+#endif
 
 /**
  * Opens/creates a file.

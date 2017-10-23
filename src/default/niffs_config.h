@@ -49,6 +49,22 @@
 #define NIFFS_NAME_LEN          (16)
 #endif
 
+// Enable or disable linear area features.
+// Files in the linear area are not divided by page headers but are linear on
+// medium. To create a linear file, pass NIFFS_O_CREAT and NIFFS_O_CREAT_LINEAR
+// when creating the file with open.
+// To have more control over the linear file, NIFFS_mknod_linear can also be
+// called, see corresponding function for more info.
+// The linear area is not wear leveled. Once a linear file is deleted,
+// corresponding sectors are immediately erased.
+// This implies that each linear file will at least occupy one sector, even if
+// the size is 0.
+// Linear files can only be appended, never modified. Defragmentation of the
+// linear area is up to the user.
+#ifndef NIFFS_LINEAR_AREA
+#define NIFFS_LINEAR_AREA       (1)
+#endif
+
 // define number of bits used for object ids, used for uniquely identify a file
 #ifndef NIFFS_OBJ_ID_BITS
 #define NIFFS_OBJ_ID_BITS       (8)
