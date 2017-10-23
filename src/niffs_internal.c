@@ -652,26 +652,38 @@ int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
   niffs_page_hdr *phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->cur_pix);
   u32_t rem_tot = flen - fd->offs;
   u32_t rem_page = _NIFFS_SPIX_2_PDATA_LEN(fs, phdr->id.spix) - _NIFFS_OFFS_2_PDATA_OFFS(fs, fd->offs);
-  u32_t avail_data = MIN(rem_tot, rem_page);
-
-  // make sure span index is coherent
-  if (phdr->id.spix != _NIFFS_OFFS_2_SPIX(fs, fd->offs)) {
-    niffs_page_ix pix;
-    res = niffs_find_page(fs, &pix, fd->obj_id, _NIFFS_OFFS_2_SPIX(fs, fd->offs), fd->cur_pix);
-    if (res != NIFFS_OK) return res;
-    fd->cur_pix = pix;
-    phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->cur_pix);
+  u32_t avail_data;
+  if (fd->type == _NIFFS_FTYPE_LINFILE) {
+    avail_data = rem_tot;
+  } else {
+    avail_data = MIN(rem_tot, rem_page);
   }
 
-  if (_NIFFS_IS_DELE(phdr)) res = ERR_NIFFS_PAGE_DELETED;
-  else if (_NIFFS_IS_FREE(phdr)) res =  ERR_NIFFS_PAGE_FREE;
-  else if (phdr->id.obj_id != fd->obj_id) res = ERR_NIFFS_INCOHERENT_ID;
+  if (fd->type == _NIFFS_FTYPE_LINFILE) {
+    // linear files
+    niffs_linear_file_hdr *lfhdr = (niffs_linear_file_hdr *)ohdr;
+    u8_t *lin_file_start_addr = _NIFFS_SECTOR_2_ADDR(fs, lfhdr->start_sector);
+    *data = lin_file_start_addr + fd->offs;
+    *avail = avail_data;
+  } else {
+    // regular page chopped files
+    // make sure span index is coherent
+    if (phdr->id.spix != _NIFFS_OFFS_2_SPIX(fs, fd->offs)) {
+      niffs_page_ix pix;
+      res = niffs_find_page(fs, &pix, fd->obj_id, _NIFFS_OFFS_2_SPIX(fs, fd->offs), fd->cur_pix);
+      if (res != NIFFS_OK) return res;
+      fd->cur_pix = pix;
+      phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->cur_pix);
+    }
 
-  if (res) return res;
-
-  *data = (u8_t *)phdr + _NIFFS_OFFS_2_PDATA_OFFS(fs, fd->offs) +
-      (phdr->id.spix == 0 ? sizeof(niffs_object_hdr) : sizeof(niffs_page_hdr));
-  *avail = avail_data;
+    if (_NIFFS_IS_DELE(phdr)) res = ERR_NIFFS_PAGE_DELETED;
+    else if (_NIFFS_IS_FREE(phdr)) res =  ERR_NIFFS_PAGE_FREE;
+    else if (phdr->id.obj_id != fd->obj_id) res = ERR_NIFFS_INCOHERENT_ID;
+    if (res) return res;
+    *data = (u8_t *)phdr + _NIFFS_OFFS_2_PDATA_OFFS(fs, fd->offs) +
+        (phdr->id.spix == 0 ? sizeof(niffs_object_hdr) : sizeof(niffs_page_hdr));
+    *avail = avail_data;
+  }
 
   return avail_data;
 }
