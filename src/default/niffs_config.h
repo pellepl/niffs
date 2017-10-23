@@ -27,7 +27,7 @@
 
 // define for getting niffs debug output
 #ifndef NIFFS_DBG
-#define NIFFS_DBG(...)
+#define NIFFS_DBG(_f, ...)
 #endif
 
 // define NIFFS_DUMP to be able to visualize filesystem with NIFFS_dump
@@ -35,7 +35,7 @@
 #ifdef NIFFS_DUMP
 #ifndef NIFFS_DUMP_OUT
 // used to output in NIFFS_dump
-#define NIFFS_DUMP_OUT(...)
+#define NIFFS_DUMP_OUT(_f, ...)
 #endif
 #endif
 

@@ -47,7 +47,7 @@ typedef signed char s8_t;
 
 extern u8_t __dbg;
 #define NIFFS_DBG_DEFAULT           0
-#define NIFFS_DBG(...)              if (__dbg) printf(__VA_ARGS__)
+#define NIFFS_DBG(_f, ...)          if (__dbg) printf(_f, ## __VA_ARGS__)
 #define NIFFS_NAME_LEN              (16)  // max 16 characters file name
 #define NIFFS_OBJ_ID_BITS           (8)   // max 256-2 files
 #define NIFFS_SPAN_IX_BITS          (8)   // max 256 pages of data per file
@@ -60,7 +60,7 @@ extern u8_t __dbg;
 #define NIFFS_TYPE_MAGIC_SIZE       u16_t // use 16-bit magic nbr
 #define NIFFS_TYPE_ERASE_COUNT_SIZE u16_t // use 16-bit sector erase counter
 #define NIFFS_DUMP                        // enable dumping
-#define NIFFS_DUMP_OUT(...)         printf(__VA_ARGS__)
+#define NIFFS_DUMP_OUT(_f, ...)     printf(_f, ## __VA_ARGS__)
 
 // enable linear features in test
 #define NIFFS_LINEAR                1
