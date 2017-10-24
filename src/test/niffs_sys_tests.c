@@ -920,7 +920,46 @@ TEST(sys_lseek_read_ftell) {
 }
 TEST_END
 
+#if NIFFS_LINEAR_AREA
 
+TEST(sys_lin_open) {
+  int res;
+  int fd;
+
+  u8_t *data = niffs_emul_create_data("linear", fs.lin_sectors * fs.sector_size);
+  TEST_CHECK(data);
+
+  u32_t mul;
+  for (mul = 1; mul <= fs.lin_sectors; mul++) {
+    const u32_t fsize = fs.sector_size * mul;
+    fd = NIFFS_open(&fs, "linear", NIFFS_O_CREAT | NIFFS_O_TRUNC | NIFFS_O_LINEAR | NIFFS_O_RDWR, 0);
+    TEST_CHECK_GE(fd,0);
+    res = NIFFS_write(&fs, fd, data, fsize);
+    TEST_CHECK_EQ(res, fsize);
+    res = NIFFS_close(&fs, fd);
+    TEST_CHECK_EQ(res, NIFFS_OK);
+    fd = NIFFS_open(&fs, "linear", NIFFS_O_RDONLY, 0);
+    TEST_CHECK_GE(fd,0);
+    res = niffs_emul_verify_file(&fs, "linear");
+    TEST_CHECK_EQ(res, NIFFS_OK);
+    u8_t *ptr;
+    u32_t len;
+    res = NIFFS_read_ptr(&fs, fd, &ptr, &len);
+    TEST_CHECK_EQ(res, fsize);
+    TEST_CHECK_EQ(len, fsize);
+    niffs_stat s;
+    res = NIFFS_fstat(&fs, fd, &s);
+    TEST_CHECK_EQ(res, NIFFS_OK);
+    TEST_CHECK_EQ(s.size, fsize);
+    TEST_CHECK_EQ(s.type, _NIFFS_FTYPE_LINFILE);
+    res = NIFFS_close(&fs, fd);
+    TEST_CHECK_EQ(res, NIFFS_OK);
+  }
+  return TEST_RES_OK;
+}
+TEST_END
+
+#endif // NIFFS_LINEAR_AREA
 
 SUITE_TESTS(niffs_sys_tests)
   ADD_TEST(sys_missing_file)
@@ -950,4 +989,7 @@ SUITE_TESTS(niffs_sys_tests)
   ADD_TEST(sys_lseek_modification_append_multi)
   ADD_TEST(sys_lseek)
   ADD_TEST(sys_lseek_read_ftell)
+#if NIFFS_LINEAR_AREA
+  ADD_TEST(sys_lin_open)
+#endif // NIFFS_LINEAR_AREA
 SUITE_END(niffs_sys_tests)

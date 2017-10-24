@@ -1526,6 +1526,13 @@ TEST(func_lin_overwrite) {
   res = NIFFS_close(&fs, fd);
   TEST_CHECK_EQ(res, NIFFS_OK);
 
+  fd = NIFFS_open(&fs, "linear", NIFFS_O_RDONLY, 0);
+  TEST_CHECK_GE(fd, NIFFS_OK);
+  niffs_file_desc *desc;
+  res = niffs_get_filedesc(&fs, fd, &desc);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  u32_t start_sec1 = ((niffs_linear_file_hdr *)_NIFFS_PIX_2_ADDR(&fs, desc->obj_pix))->start_sector;
+
   res = NIFFS_remove(&fs, "linear");
   TEST_CHECK_EQ(res, NIFFS_OK);
 
@@ -1537,6 +1544,14 @@ TEST(func_lin_overwrite) {
   TEST_CHECK_EQ(res, len);
   res = NIFFS_close(&fs, fd);
   TEST_CHECK_EQ(res, NIFFS_OK);
+
+  fd = NIFFS_open(&fs, "linear2", NIFFS_O_RDONLY, 0);
+  TEST_CHECK_GE(fd, NIFFS_OK);
+  res = niffs_get_filedesc(&fs, fd, &desc);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  u32_t start_sec2 = ((niffs_linear_file_hdr *)_NIFFS_PIX_2_ADDR(&fs, desc->obj_pix))->start_sector;
+
+  TEST_CHECK_EQ(start_sec1, start_sec2);
 
   res = niffs_emul_verify_file(&fs, "linear2");
   TEST_CHECK_EQ(res, NIFFS_OK);
@@ -1553,9 +1568,9 @@ TEST(func_lin_clamp) {
   int fd;
 
   u32_t len = fs.sector_size*2;
+
   u8_t *data = niffs_emul_create_data("linear1", len);
   TEST_CHECK(data);
-
   fd = NIFFS_mknod_linear(&fs, "linear1", 0);
   TEST_CHECK_GE(fd, NIFFS_OK);
   res = NIFFS_write(&fs, fd, data, len);
