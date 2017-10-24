@@ -36,6 +36,9 @@ int NIFFS_open(niffs *fs, const char *name, u8_t flags, niffs_mode mode) {
 #if !NIFFS_LINEAR_AREA
   if (type == _NIFFS_FTYPE_LINFILE) return ERR_NIFFS_BAD_CONF;
 #endif
+  if (type) {
+    flags |= NIFFS_O_APPEND; // force append for linear files
+  }
   int fd_ix = niffs_open(fs, name, flags);
   if (fd_ix < 0) {
     // file not found
