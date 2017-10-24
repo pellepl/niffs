@@ -182,6 +182,25 @@ typedef struct {
   niffs_page_ix pix;
 } niffs_DIR;
 
+/* niffs fs info struct */
+typedef struct {
+  /* total amount of bytes in filesystem (linear parts excluded) */
+  s32_t total_bytes;
+  /* used bytes in filesystem (linear parts excluded) */
+  s32_t used_bytes;
+  /* If non-zero, this means you should delete some files and run a check.
+   This can happen if filesystem loses power repeatedly during
+   garbage collection or check. */
+  u8_t overflow;
+
+  /* total amount of sectors in the linear part of filesystem */
+  s32_t lin_total_sectors;
+  /* used sectors in the linear part of filesystem */
+  s32_t lin_used_sectors;
+  /* maximum free consecutive area in the linear part of filesystem */
+  s32_t lin_max_conseq_free;
+} niffs_info;
+
 /**
  * Initializes and configures the file system.
  * The file system needs a ram work buffer being at least a logical page size
@@ -233,7 +252,7 @@ int NIFFS_mount(niffs *fs);
  *                      This can happen if filesystem loses power repeatedly during
  *                      garbage collection or check.
  */
-int NIFFS_info(niffs *fs, s32_t *total, s32_t *used, u8_t *overflow);
+int NIFFS_info(niffs *fs, niffs_info *i);
 
 /**
  * Creates a new file.

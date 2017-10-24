@@ -414,13 +414,13 @@ static int niffs_linear_find_space_v(niffs *fs, niffs_page_ix pix, niffs_page_hd
           // length oob, do not let this file contaminate the free sector map
           // delete this file silently
           (void)niffs_delete_page(fs, pix);
-          NIFFS_DBG("create: linear: pix %04x oid:%04x name:%s bad length %i sectors, deleting\n",
+          NIFFS_DBG("   map: linear: pix %04x oid:%04x name:%s bad length %i sectors, deleting\n",
               pix, phdr->id.obj_id, ohdr->name, sects);
           return NIFFS_VIS_CONT;
         }
         u32_t lsix = lfhdr->start_sector - fs->sectors;
         u32_t end_lsix = lsix + sects;
-        NIFFS_DBG("create: linear: oid:%04x name:%s occupies sectors %i--%i\n",
+        NIFFS_DBG("   map: linear: oid:%04x name:%s occupies sectors %i--%i\n",
             phdr->id.obj_id, ohdr->name, lsix+fs->sectors, end_lsix+fs->sectors);
         while (lsix < end_lsix) {
           fs->buf[lsix/8] |= (1 << (lsix&7));
@@ -432,14 +432,17 @@ static int niffs_linear_find_space_v(niffs *fs, niffs_page_ix pix, niffs_page_hd
   return NIFFS_VIS_CONT;
 }
 
-int niffs_linear_find_space(niffs *fs, u32_t sectors, u32_t *start_sector) {
+int niffs_linear_map(niffs *fs) {
   niffs_memset(fs->buf, 0x00, fs->buf_len);
   int res = niffs_traverse(fs, 0, 0, niffs_linear_find_space_v, 0);
-  if (res != NIFFS_VIS_END) {
-    check(res);
-    return res;
-  }
-  res = NIFFS_OK;
+  if (res == NIFFS_VIS_END) res = NIFFS_OK;
+  check(res);
+  return res;
+}
+
+int niffs_linear_find_space(niffs *fs, u32_t sectors, u32_t *start_sector) {
+  int res = niffs_linear_map(fs);
+  check(res);
 
   // allocate on first fit basis
   u8_t taken = 1;

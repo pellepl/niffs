@@ -8,13 +8,36 @@
 #include "niffs.h"
 #include "niffs_internal.h"
 
-int NIFFS_info(niffs *fs, s32_t *total, s32_t *used, u8_t *overflow) {
+int NIFFS_info(niffs *fs, niffs_info *i) {
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
-  if (total == 0 || used == 0 || overflow == 0) return ERR_NIFFS_NULL_PTR;
+  if (i == 0) return ERR_NIFFS_NULL_PTR;
 
-  *total = (fs->sectors-1) * fs->pages_per_sector * _NIFFS_SPIX_2_PDATA_LEN(fs, 1);
-  *used = ((fs->sectors) * fs->pages_per_sector - (fs->free_pages + fs->dele_pages)) * _NIFFS_SPIX_2_PDATA_LEN(fs, 1);
-  *overflow = fs->free_pages < fs->pages_per_sector;
+  i->total_bytes = (fs->sectors-1) * fs->pages_per_sector * _NIFFS_SPIX_2_PDATA_LEN(fs, 1);
+  i->used_bytes = ((fs->sectors) * fs->pages_per_sector - (fs->free_pages + fs->dele_pages)) * _NIFFS_SPIX_2_PDATA_LEN(fs, 1);
+  i->overflow = fs->free_pages < fs->pages_per_sector;
+
+#if NIFFS_LINEAR_AREA
+  i->lin_total_sectors = fs->lin_sectors;
+  i->lin_used_sectors = 0;
+  int res = niffs_linear_map(fs);
+  if (res) return res;
+  u32_t lsix;
+  u32_t max_conseq_free = 0;
+  u32_t cur_conseq_free = 0;
+  u8_t taken = 1;
+  for (lsix = 0; lsix < fs->lin_sectors; lsix++) {
+    if ((fs->buf[lsix/8] & (1<<(lsix&7)))) {
+      i->lin_used_sectors++;
+      cur_conseq_free = 0;
+      taken = 1;
+    } else {
+      cur_conseq_free++;
+      if (taken) taken = 0;
+      max_conseq_free = MAX(cur_conseq_free, max_conseq_free);
+    }
+  }
+  i->lin_max_conseq_free = max_conseq_free;
+#endif
   return NIFFS_OK;
 }
 

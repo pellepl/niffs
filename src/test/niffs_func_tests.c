@@ -39,12 +39,13 @@ TEST(func_info) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
   s32_t tot, used;
   u8_t of;
-  TEST_CHECK_EQ(NIFFS_info(&fs, &tot, &used, &of), NIFFS_OK);
-  TEST_CHECK_GE(fs.sector_size * fs.sectors, tot);
-  TEST_CHECK_LE(fs.sector_size * fs.sectors/2, tot);
-  TEST_CHECK_GT(tot, used);
-  TEST_CHECK_GT(tot, fs.sector_size);
-  TEST_CHECK_EQ(used, 0);
+  niffs_info i;
+  TEST_CHECK_EQ(NIFFS_info(&fs, &i), NIFFS_OK);
+  TEST_CHECK_GE(fs.sector_size * fs.sectors, i.total_bytes);
+  TEST_CHECK_LE(fs.sector_size * fs.sectors/2, i.total_bytes);
+  TEST_CHECK_GT(i.total_bytes, i.used_bytes);
+  TEST_CHECK_GT(i.total_bytes, fs.sector_size);
+  TEST_CHECK_EQ(i.used_bytes, 0);
   return TEST_RES_OK;
 } TEST_END
 

@@ -260,6 +260,7 @@ int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_pages);
 
 int niffs_chk(niffs *fs);
 
+int niffs_linear_map(niffs *fs);
 int niffs_linear_find_space(niffs *fs, u32_t sectors, u32_t *start_sector);
 int niffs_linear_avail_size(niffs *fs, int fd_ix, u32_t *available_sectors);
 

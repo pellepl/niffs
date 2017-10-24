@@ -964,7 +964,7 @@ TEST(sys_lin_lseek) {
   int fd;
 
   const u32_t fsize = fs.lin_sectors * fs.sector_size;
-u8_t *data = niffs_emul_create_data("linear", fsize);
+  u8_t *data = niffs_emul_create_data("linear", fsize);
   TEST_CHECK(data);
 
   fd = NIFFS_open(&fs, "linear", NIFFS_O_CREAT | NIFFS_O_TRUNC | NIFFS_O_LINEAR | NIFFS_O_RDWR, 0);
@@ -988,6 +988,57 @@ u8_t *data = niffs_emul_create_data("linear", fsize);
     TEST_CHECK_EQ(res, fsize - offs);
     TEST_CHECK_EQ(len, fsize - offs);
   }
+
+  return TEST_RES_OK;
+}
+TEST_END
+
+TEST(sys_lin_info) {
+  int res;
+  niffs_info i;
+  res = NIFFS_info(&fs, &i);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(i.lin_total_sectors, fs.lin_sectors);
+  TEST_CHECK_EQ(i.lin_used_sectors, 0);
+  TEST_CHECK_EQ(i.lin_max_conseq_free, i.lin_total_sectors);
+  int fileno = 0;
+  int fd;
+  do {
+    char fname[12];
+    sprintf(fname, "file%i", fileno);
+    fd = NIFFS_mknod_linear(&fs, fname, 2 * fs.sector_size);
+    if (fd == NIFFS_OK) {
+      fileno++;
+      res = NIFFS_close(&fs, fd);
+    }
+    TEST_CHECK_EQ(res, NIFFS_OK);
+  } while (fd == NIFFS_OK);
+  TEST_CHECK_EQ(fd, ERR_NIFFS_LINEAR_NO_SPACE);
+  res = NIFFS_info(&fs, &i);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(i.lin_used_sectors, (fs.lin_sectors/2)*2);
+  TEST_CHECK_EQ(i.lin_max_conseq_free, i.lin_total_sectors - (fs.lin_sectors/2)*2);
+
+  int rm_fileno;
+  for (rm_fileno = 0; rm_fileno < fileno; rm_fileno += 2) {
+    char fname[12];
+    sprintf(fname, "file%i", rm_fileno);
+    res = NIFFS_remove(&fs, fname);
+    TEST_CHECK_EQ(res, NIFFS_OK);
+  }
+
+  res = NIFFS_info(&fs, &i);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(i.lin_used_sectors, (fs.lin_sectors/2));
+  TEST_CHECK_EQ(i.lin_max_conseq_free, 2);
+
+  res = NIFFS_remove(&fs, "file1");
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  res = NIFFS_info(&fs, &i);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(i.lin_used_sectors, (fs.lin_sectors/2)-2);
+  TEST_CHECK_EQ(i.lin_max_conseq_free, 6);
 
   return TEST_RES_OK;
 }
@@ -1026,5 +1077,6 @@ SUITE_TESTS(niffs_sys_tests)
 #if NIFFS_LINEAR_AREA
   ADD_TEST(sys_lin_open)
   ADD_TEST(sys_lin_lseek)
+  ADD_TEST(sys_lin_info)
 #endif // NIFFS_LINEAR_AREA
 SUITE_END(niffs_sys_tests)
