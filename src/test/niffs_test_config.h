@@ -53,7 +53,7 @@ extern u8_t __dbg;
 #define NIFFS_NAME_LEN              (16)  // max 16 characters file name
 #define NIFFS_OBJ_ID_BITS           (8)   // max 256-2 files
 #define NIFFS_SPAN_IX_BITS          (8)   // max 256 pages of data per file
-#define NIFFS_WORD_ALIGN            (2)   // 16-bit word alignment
+#define NIFFS_WORD_ALIGN            (1)   // 8-bit word alignment //16-bit word alignment
 #define NIFFS_TYPE_OBJ_ID_SIZE      u8_t  // see NIFFS_OBJ_ID_BITS
 #define NIFFS_TYPE_SPAN_IX_SIZE     u8_t  // see NIFFS_SPAN_IX_BITS
 #define NIFFS_TYPE_RAW_PAGE_ID_SIZE u16_t // see NIFFS_OBJ_ID_BITS + NIFFS_SPAN_IX_BITS

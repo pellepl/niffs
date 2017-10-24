@@ -15,24 +15,24 @@
 #define NIFFS_SEEK_END          (2)
 
 /* Any write to the filehandle is appended to end of the file */
-#define NIFFS_O_APPEND                   (1<<0)
+#define NIFFS_O_APPEND                      (1<<0)
 /* If the opened file exists, it will be truncated to zero length before opened */
-#define NIFFS_O_TRUNC                    (1<<1)
+#define NIFFS_O_TRUNC                       (1<<1)
 /* If the opened file does not exist, it will be created before opened */
-#define NIFFS_O_CREAT                    (1<<2)
+#define NIFFS_O_CREAT                       (1<<2)
 /* The opened file may only be read */
-#define NIFFS_O_RDONLY                   (1<<3)
+#define NIFFS_O_RDONLY                      (1<<3)
 /* The opened file may only be writted */
-#define NIFFS_O_WRONLY                   (1<<4)
+#define NIFFS_O_WRONLY                      (1<<4)
 /* The opened file may be both read and written */
-#define NIFFS_O_RDWR                     (NIFFS_O_RDONLY | NIFFS_O_WRONLY)
+#define NIFFS_O_RDWR                        (NIFFS_O_RDONLY | NIFFS_O_WRONLY)
 /* Any writes to the filehandle will never be cached */
-#define NIFFS_O_DIRECT                   (1<<5)
+#define NIFFS_O_DIRECT                      (1<<5)
 /* If O_CREAT and O_EXCL are set, open() fails if the file exists. */
-#define NIFFS_O_EXCL                     (1<<6)
+#define NIFFS_O_EXCL                        (1<<6)
 /* If O_CREAT and O_LINEAR is enabled, along with config NIFFS_LINEAR_AREA,
-   the created file will be */
-#define NIFFS_O_LINEAR             (1<<7)
+   the created file will be put in the linear area */
+#define NIFFS_O_LINEAR                      (1<<7)
 
 #ifndef NIFFS_ERR_BASE
 #define NIFFS_ERR_BASE                      (11000)

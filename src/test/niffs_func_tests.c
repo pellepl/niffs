@@ -1600,6 +1600,37 @@ TEST(func_lin_clamp) {
   return TEST_RES_OK;
 } TEST_END
 
+TEST(func_lin_full) {
+  int res = NIFFS_format(&fs);
+  TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+  int fd;
+
+  u32_t len = fs.sector_size*fs.lin_sectors+1;
+
+  u8_t *data = niffs_emul_create_data("linearbig", len);
+  TEST_CHECK(data);
+  fd = NIFFS_mknod_linear(&fs, "linearbig", 0);
+  TEST_CHECK_GE(fd, NIFFS_OK);
+  res = NIFFS_write(&fs, fd, data, len-3);
+  TEST_CHECK_EQ(res, len-3);
+  data += len-3;
+  res = NIFFS_write(&fs, fd, data, 1);
+  TEST_CHECK_EQ(res, 1);
+  data += 1;
+  res = NIFFS_write(&fs, fd, data, 1);
+  TEST_CHECK_EQ(res, 1);
+  data += 1;
+  res = NIFFS_write(&fs, fd, data, 1);
+  TEST_CHECK_EQ(res, ERR_NIFFS_LINEAR_NO_SPACE);
+  res = NIFFS_close(&fs, fd);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  res = niffs_emul_verify_file(&fs, "linearbig");
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  return TEST_RES_OK;
+} TEST_END
+
 #endif //NIFFS_LINEAR_AREA
 
 SUITE_TESTS(niffs_func_tests)
@@ -1641,5 +1672,6 @@ SUITE_TESTS(niffs_func_tests)
   ADD_TEST(func_lin_write)
   ADD_TEST(func_lin_overwrite)
   ADD_TEST(func_lin_clamp)
+  ADD_TEST(func_lin_full)
 #endif
 SUITE_END(niffs_func_tests)

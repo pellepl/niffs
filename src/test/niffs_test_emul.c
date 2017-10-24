@@ -30,25 +30,45 @@ static fdata *dlast = 0;
 static u32_t valid_byte_writes = 0;
 
 static int emul_hal_erase_f(u8_t *addr, u32_t len) {
-  if (addr < &_flash[0]) return ERR_NIFFS_TEST_BAD_ADDR;
-  if (addr+len > &_flash[0] + (EMUL_SECTORS+EMUL_LIN_SECTORS) * EMUL_SECTOR_SIZE) return ERR_NIFFS_TEST_BAD_ADDR;
-  if ((addr - &_flash[0]) % EMUL_SECTOR_SIZE) return ERR_NIFFS_TEST_BAD_ADDR;
+  if (addr < &_flash[0]) {
+    printf("erasing too low address\n");
+    return ERR_NIFFS_TEST_BAD_ADDR;
+  }
+  if (addr+len > &_flash[0] + (EMUL_SECTORS+EMUL_LIN_SECTORS) * EMUL_SECTOR_SIZE) {
+    printf("erasing too high address (addr:%i len:%i, max:%i)\n", (u32_t)((intptr_t)addr - (intptr_t)_flash), len,
+        (EMUL_SECTORS+EMUL_LIN_SECTORS) * EMUL_SECTOR_SIZE);
+    return ERR_NIFFS_TEST_BAD_ADDR;
+  }
+  if ((addr - &_flash[0]) % EMUL_SECTOR_SIZE) {
+    printf("erasing unaligned address\n");
+    return ERR_NIFFS_TEST_BAD_ADDR;
+  }
   if (len != EMUL_SECTOR_SIZE) return ERR_NIFFS_TEST_BAD_ADDR;
   memset(addr, 0xff, len);
   return NIFFS_OK;
 }
 
 static int emul_hal_write_f(u8_t *addr, const u8_t *src, u32_t len) {
-  if (addr < &_flash[0]) return ERR_NIFFS_TEST_BAD_ADDR;
-  if (addr+len >= &_flash[0] + (EMUL_SECTORS+EMUL_LIN_SECTORS) * EMUL_SECTOR_SIZE) return ERR_NIFFS_TEST_BAD_ADDR;
-  if (len == 0) return ERR_NIFFS_TEST_BAD_ADDR;
+  if (addr < &_flash[0]) {
+    printf("writing too low address\n");
+    return ERR_NIFFS_TEST_BAD_ADDR;
+  }
+  if (addr+len > &_flash[0] + (EMUL_SECTORS+EMUL_LIN_SECTORS) * EMUL_SECTOR_SIZE) {
+    printf("writing too high address (addr:%i len:%i, max:%i)\n", (u32_t)((intptr_t)addr - (intptr_t)_flash), len,
+        (EMUL_SECTORS+EMUL_LIN_SECTORS) * EMUL_SECTOR_SIZE);
+    return ERR_NIFFS_TEST_BAD_ADDR;
+  }
+  if (len == 0) {
+    printf("writing nothing\n");
+    return ERR_NIFFS_TEST_BAD_ADDR;
+  }
 //  if (len % NIFFS_WORD_ALIGN != 0) {
 //    printf("unaligned write length %08x\n", len);
 //    return ERR_NIFFS_TEST_UNLIGNED_WRITE_LEN;
 //  }
 #ifdef TEST_CHECK_UNALIGNED_ACCESS
   if ((uintptr_t)addr % NIFFS_WORD_ALIGN != 0) {
-    printf("unaligned write address %p\n", addr);
+    printf("unaligned write address %p (addr:%i len:%i)\n", addr, (u32_t)((intptr_t)addr - (intptr_t)_flash), len);
     return ERR_NIFFS_TEST_UNLIGNED_WRITE_ADDR;
   }
 #endif

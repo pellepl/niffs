@@ -7,6 +7,14 @@ static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_p
 #define ERA_CNT_MIN_OF_LIMIT (((niffs_erase_cnt)-1)/4+1)
 #define ERA_CNT_MAX_OF_LIMIT (((niffs_erase_cnt)-1)-ERA_CNT_MIN_OF_LIMIT+1)
 
+#define check(_r) do { \
+  int __res = (_r); \
+  if (__res) { \
+    NIFFS_DBG("err %i @ %s in %s:%i\n", __res, __func__, __FILE__, __LINE__); \
+    return __res; \
+  }\
+}while(0);
+
 //////////////////////////////////// BASE ////////////////////////////////////
 
 int niffs_traverse(niffs *fs, niffs_page_ix pix_start, niffs_page_ix pix_end, niffs_visitor_f v, void *v_arg) {
@@ -187,7 +195,7 @@ static int niffs_find_page_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr,
     if (arg->mov_found) {
       // had a previous moving page - delete this
       int res = niffs_delete_page(fs, arg->pix_mov);
-      if (res != NIFFS_OK) return res;
+      check(res);
       arg->mov_found = 0;
     }
 
@@ -287,7 +295,7 @@ TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst
   else if (_NIFFS_IS_FREE(src_phdr))  res = ERR_NIFFS_MOVING_FREE_PAGE;
   else if (_NIFFS_IS_DELE(src_phdr))  res = ERR_NIFFS_MOVING_DELETED_PAGE;
   else if (!_NIFFS_IS_FREE(dst_phdr)) res = ERR_NIFFS_MOVING_TO_UNFREE_PAGE;
-  if (res) return res;
+  check(res);
 
   u8_t src_clear = _NIFFS_IS_CLEA(src_phdr);
   u8_t src_movi = _NIFFS_IS_MOVI(src_phdr);
@@ -299,7 +307,7 @@ TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst
   if (!_NIFFS_IS_MOVI(src_phdr)) {
     niffs_flag moving_flag = _NIFFS_FLAG_MOVING;
     res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, src_pix) + offsetof(niffs_page_hdr, flag), (u8_t *)&moving_flag, sizeof(niffs_flag));
-    if (res) return res;
+    check(res);
   }
 
   // write dst..
@@ -314,23 +322,23 @@ TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst
   }
   if (flag != _NIFFS_FLAG_CLEAN) {
     res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, dst_pix) + offsetof(niffs_page_hdr, flag), (u8_t *)&flag, sizeof(niffs_flag));
-    if (res) return res;
+    check(res);
   }
 
   fs->free_pages--;
   if (data == 0 && (!src_clear || !src_phdr->id.spix != 0)) {
     // .. page data ..
     res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, dst_pix) + sizeof(niffs_page_hdr), (u8_t *)src_phdr  + sizeof(niffs_page_hdr), fs->page_size - sizeof(niffs_page_hdr));
-    if (res) return res;
+    check(res);
   } else if (data) {
     // .. else, user data ..
     res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, dst_pix) + sizeof(niffs_page_hdr), data, len);
-    if (res) return res;
+    check(res);
   }
   // .. and id
   res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, dst_pix) + offsetof(niffs_page_hdr, id),
       (u8_t *)src_phdr  + offsetof(niffs_page_hdr, id), sizeof(niffs_page_hdr_id));
-  if (res) return res;
+  check(res);
 
   niffs_inform_page_movement(fs, src_pix, dst_pix);
 
@@ -349,7 +357,7 @@ TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr
   } else if (!_NIFFS_IS_FREE(orig_phdr) || !_NIFFS_IS_CLEA(orig_phdr)) {
     res = ERR_NIFFS_WR_PHDR_UNFREE_PAGE;
   }
-  if (res) return res;
+  check(res);
 
   NIFFS_ASSERT(data == 0 || len <= _NIFFS_SPIX_2_PDATA_LEN(fs, 1));
 
@@ -358,12 +366,12 @@ TESTATIC int niffs_write_page(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr
   if (!_NIFFS_IS_CLEA(phdr)) {
     // first, write flag
     res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, pix) + offsetof(niffs_page_hdr, flag), (u8_t *)&phdr->flag, sizeof(niffs_flag));
-    if (res) return res;
+    check(res);
   }
   // .. data ..
   if (data) {
     res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, pix) + sizeof(niffs_page_hdr), data, len);
-    if (res) return res;
+    check(res);
   }
 
   // .. then id
@@ -488,13 +496,13 @@ static int niffs_linear_avail_size_v(niffs *fs, niffs_page_ix pix, niffs_page_hd
 int niffs_linear_avail_size(niffs *fs, int fd_ix, u32_t *available_sectors) {
   niffs_file_desc *fd;
   int res = niffs_get_filedesc(fs, fd_ix, &fd);
-  if (res != NIFFS_OK) return res;
+  check(res);
   if (fd->type != _NIFFS_FTYPE_LINFILE) return ERR_NIFFS_FILEDESC_BAD;
   niffs_linear_file_hdr *lfhdr = (niffs_linear_file_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
   if (_NIFFS_IS_DELE(&lfhdr->ohdr.phdr)) res = ERR_NIFFS_PAGE_DELETED;
   else if (_NIFFS_IS_FREE(&lfhdr->ohdr.phdr)) res = ERR_NIFFS_PAGE_FREE;
   else if (lfhdr->ohdr.phdr.id.obj_id != fd->obj_id) res = ERR_NIFFS_INCOHERENT_ID;
-  if (res != NIFFS_OK) return res;
+  check(res);
   niffs_linear_avail_size_arg arg =
     {.start_sector = lfhdr->start_sector, .nearest_sector_after = (u32_t)-1};
   res = niffs_traverse(fs, 0, 0, niffs_linear_avail_size_v, &arg);
@@ -534,13 +542,13 @@ int niffs_create(niffs *fs, const char *name, niffs_file_type type, void *meta) 
   if (name == 0) return ERR_NIFFS_NULL_PTR;
 
   res = niffs_ensure_free_pages(fs, 1);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   res = niffs_find_free_id(fs, &oid, name);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   res = niffs_find_free_page(fs, &pix, NIFFS_EXCL_SECT_NONE);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   NIFFS_DBG("create: pix %04x oid:%04x name:%s\n", pix, oid, name);
 
@@ -592,7 +600,7 @@ int niffs_create(niffs *fs, const char *name, niffs_file_type type, void *meta) 
       (u8_t *)&hdr.ohdr + offsetof(niffs_object_hdr, len),
       xtra_meta_len);
 
-  if (res != NIFFS_OK) return res;
+  check(res);
   fs->free_pages--;
 
   return res;
@@ -619,7 +627,7 @@ static int niffs_open_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void
         if (arg->oid_mov) {
           // had a previous moving page - delete this
           int res = niffs_delete_page(fs, arg->pix_mov);
-          if (res != NIFFS_OK) return res;
+          check(res);
           arg->oid_mov = 0;
         }
         arg->type = ohdr->type;
@@ -657,7 +665,7 @@ int niffs_open(niffs *fs, const char *name, niffs_fd_flags flags) {
       // tidy up found movi obj hdr page
       niffs_page_ix dst_pix;
       res = niffs_chk_tidy_movi_objhdr_page(fs, arg.pix_mov, &dst_pix);
-      if (res != NIFFS_OK) return res;
+      check(res);
       arg.oid = arg.oid_mov;
       arg.pix = dst_pix;
     } else {
@@ -693,7 +701,7 @@ int niffs_close(niffs *fs, int fd_ix) {
 int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
   niffs_file_desc *fd;
   int res = niffs_get_filedesc(fs, fd_ix, &fd);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   if ((fd->flags & NIFFS_O_RDONLY) == 0) {
     return ERR_NIFFS_NOT_READABLE;
@@ -708,7 +716,7 @@ int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
   } else if (_NIFFS_IS_DELE(&ohdr->phdr)) res = ERR_NIFFS_PAGE_DELETED;
   else if (_NIFFS_IS_FREE(&ohdr->phdr)) res = ERR_NIFFS_PAGE_FREE;
   else if (ohdr->phdr.id.obj_id != fd->obj_id) res = ERR_NIFFS_INCOHERENT_ID;
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   niffs_page_hdr *phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->cur_pix);
   u32_t rem_tot = flen - fd->offs;
@@ -736,7 +744,7 @@ int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
     if (phdr->id.spix != _NIFFS_OFFS_2_SPIX(fs, fd->offs)) {
       niffs_page_ix pix;
       res = niffs_find_page(fs, &pix, fd->obj_id, _NIFFS_OFFS_2_SPIX(fs, fd->offs), fd->cur_pix);
-      if (res != NIFFS_OK) return res;
+      check(res);
       fd->cur_pix = pix;
       phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->cur_pix);
     }
@@ -744,7 +752,7 @@ int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
     if (_NIFFS_IS_DELE(phdr)) res = ERR_NIFFS_PAGE_DELETED;
     else if (_NIFFS_IS_FREE(phdr)) res =  ERR_NIFFS_PAGE_FREE;
     else if (phdr->id.obj_id != fd->obj_id) res = ERR_NIFFS_INCOHERENT_ID;
-    if (res) return res;
+    check(res);
     *data = (u8_t *)phdr + _NIFFS_OFFS_2_PDATA_OFFS(fs, fd->offs) +
         (phdr->id.spix == 0 ? sizeof(niffs_object_hdr) : sizeof(niffs_page_hdr));
     *avail = avail_data;
@@ -758,7 +766,7 @@ int niffs_seek(niffs *fs, int fd_ix, s32_t offset, u8_t whence) {
   niffs_file_desc *fd;
 
   res = niffs_get_filedesc(fs, fd_ix, &fd);
-  if (res != NIFFS_OK) return res;
+  check(res);
   niffs_object_hdr *ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
   u32_t flen = ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len;
   s32_t coffs;
@@ -787,7 +795,7 @@ int niffs_seek(niffs *fs, int fd_ix, s32_t offset, u8_t whence) {
     if (!((u32_t)coffs == flen && _NIFFS_OFFS_2_PDATA_OFFS(fs, (u32_t)coffs) == 0)) {
       niffs_page_ix seek_pix;
       res = niffs_find_page(fs, &seek_pix, fd->obj_id, _NIFFS_OFFS_2_SPIX(fs, (u32_t)coffs), fd->cur_pix);
-      if (res != NIFFS_OK) return res;
+      check(res);
       fd->cur_pix = seek_pix;
     }
   }
@@ -797,11 +805,10 @@ int niffs_seek(niffs *fs, int fd_ix, s32_t offset, u8_t whence) {
 }
 
 int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
-  // TODO linear
   int res = NIFFS_OK;
   niffs_file_desc *fd;
   res = niffs_get_filedesc(fs, fd_ix, &fd);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   if ((fd->flags & NIFFS_O_WRONLY) == 0) {
     return ERR_NIFFS_NOT_WRITABLE;
@@ -823,12 +830,15 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
     // check space in linear area
     u32_t avail_sects;
     res = niffs_linear_avail_size(fs, fd_ix, &avail_sects);
-    if (res != NIFFS_OK) return res;
+    check(res);
     avail_sects -= (file_offs + fs->sector_size-1) / fs->sector_size; // minus used sects
     u32_t free_bytes_in_current_sector = fs->sector_size - (file_offs % fs->sector_size);
-    if (file_offs == 0) {
+    if ((file_offs % fs->sector_size) == 0) {
       free_bytes_in_current_sector = 0; // already taken in account for in avail_sects
     }
+    NIFFS_DBG("append: linear: fileoffs:%i write %i, avail:%i (avail sects:%i, bytes:%i)\n",
+        file_offs,
+        len, avail_sects * fs->sector_size + free_bytes_in_current_sector, avail_sects, free_bytes_in_current_sector);
     if (len > avail_sects * fs->sector_size + free_bytes_in_current_sector) {
       return ERR_NIFFS_LINEAR_NO_SPACE;
     }
@@ -840,7 +850,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
     } else {
       // need one page in ordinary fs area to update object header
       res = niffs_ensure_free_pages(fs, 1);
-      if (res) return res;
+      check(res);
     }
   } else {
     if (file_offs == 0 && _NIFFS_OFFS_2_SPIX(fs, len-1) == 0) {
@@ -851,7 +861,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
             (_NIFFS_OFFS_2_PDATA_OFFS(fs, len + file_offs) == 0 ? -1 : 0) +
             (file_offs == 0 ? 0 : 1);
       res = niffs_ensure_free_pages(fs, needed_pages);
-      if (res) return res;
+      check(res);
     }
   }
 
@@ -862,7 +872,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
     orig_ohdr_addr = (u8_t *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
     orig_obj_pix = fd->obj_pix;
   }
-  if (res) return res;
+  check(res);
 
   u32_t data_offs = 0;
   u32_t written = 0;
@@ -870,6 +880,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
     // changing existing file - write flag, mark obj header as MOVI
     niffs_flag flag = _NIFFS_FLAG_MOVING;
     res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix) + offsetof(niffs_object_hdr, phdr) + offsetof(niffs_page_hdr, flag), (u8_t *)&flag, sizeof(niffs_flag));
+    check(res);
   }
 
   // WRITE DATA
@@ -886,7 +897,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
           // not empty, must erase
           NIFFS_DBG("append: linear: erase dirty sector %i\n", lsix);
           res = fs->hal_er(_NIFFS_SECTOR_2_ADDR(fs, lsix), fs->sector_size);
-          if (res) return res;
+          check(res);
         }
         avail = fs->sector_size;
       } else {
@@ -896,7 +907,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
       NIFFS_DBG("append: linear: sector %i, obj hdr oid:%04x len:%i\n",
           lfhdr->start_sector + (file_offs + data_offs) / fs->sector_size, fd->obj_id, avail);
       res = fs->hal_wr((u8_t *)_NIFFS_SECTOR_2_ADDR(fs, lfhdr->start_sector) + file_offs + data_offs, src, avail);
-      if (res) return res;
+      check(res);
 
       src += avail;
       data_offs += avail;
@@ -915,7 +926,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
         NIFFS_DBG("append: pix %04x obj hdr oid:%04x spix:0 len:%i\n", fd->obj_pix, fd->obj_id, avail);
         // .. data ..
         res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix) + sizeof(niffs_object_hdr), src, avail);
-        if (res) return res;
+        check(res);
 
         dst_ohdr_addr = (u8_t *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix); // original obj hdr
         dst_ohdr_pix = fd->obj_pix;
@@ -927,7 +938,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
         avail = MIN(len - written, _NIFFS_SPIX_2_PDATA_LEN(fs, 1));
         niffs_page_ix new_pix;
         res = niffs_find_free_page(fs, &new_pix, NIFFS_EXCL_SECT_NONE);
-        if (res) return res;
+        check(res);
 
         niffs_page_hdr new_phdr;
         new_phdr.id.obj_id = fd->obj_id;
@@ -936,7 +947,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
         NIFFS_DBG("append: pix %04x full page oid:%04x spix:%i len:%i\n", new_pix, fd->obj_id, new_phdr.id.spix, avail);
 
         res = niffs_write_page(fs, new_pix, &new_phdr, src, avail);
-        if (res) return res;
+        check(res);
         fs->free_pages--;
         fd->cur_pix = new_pix;
       }
@@ -950,7 +961,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
         } else {
           // rewriting plain data page, so go get it
           res = niffs_find_page(fs, &src_pix, fd->obj_id, _NIFFS_OFFS_2_SPIX(fs, file_offs + data_offs), fd->cur_pix);
-          if (res) return res;
+          check(res);
         }
 
         // find new page
@@ -959,7 +970,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
             _NIFFS_OFFS_2_PDATA_OFFS(fs, file_offs + data_offs));
         niffs_page_ix new_pix;
         res = niffs_find_free_page(fs, &new_pix, NIFFS_EXCL_SECT_NONE);
-        if (res) return res;
+        check(res);
         NIFFS_DBG("append: pix %04x is free\n", new_pix);
 
         // modify page
@@ -980,7 +991,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
           NIFFS_DBG("append: new obj hdr pix %04x\n", new_pix);
           res = niffs_write_page(fs, new_pix, &new_ohdr_data->phdr, &fs->buf[sizeof(niffs_page_hdr)],
               _NIFFS_SPIX_2_PDATA_LEN(fs, 1));
-          if (res) return res;
+          check(res);
           fs->free_pages--;
         } else {
           // rewrite plain data page
@@ -997,7 +1008,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
 
           // move page, rewrite data
           res = niffs_move_page(fs, src_pix, new_pix, fs->buf, _NIFFS_SPIX_2_PDATA_LEN(fs, 1), _NIFFS_FLAG_WRITTEN);
-          if (res) return res;
+          check(res);
         }
 
         fd->cur_pix = new_pix;
@@ -1010,7 +1021,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
     }
   }
 
-  if (res) return res;
+  check(res);
 
   // HEADER UPDATE
   if (written == 0) {
@@ -1025,7 +1036,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
     niffs_page_ix new_pix;
     res = niffs_find_free_page(fs, &new_pix, NIFFS_EXCL_SECT_NONE);
     NIFFS_DBG("append: header update for new object hdr (only length change), pix %04x\n", new_pix);
-    if (res) return res;
+    check(res);
 
     dst_ohdr_addr = (u8_t *)_NIFFS_PIX_2_ADDR(fs, new_pix);
 
@@ -1036,25 +1047,25 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
 
     // move header page, rewrite length data
     res = niffs_move_page(fs, fd->obj_pix, new_pix, fs->buf + sizeof(niffs_page_hdr), fs->page_size - sizeof(niffs_page_hdr), _NIFFS_FLAG_WRITTEN);
-    if (res) return res;
+    check(res);
   } else {
     // just fill in clean object header
     // .. write length..
     NIFFS_DBG("append: header update for object hdr (including data), pix %04x\n", dst_ohdr_pix);
     u32_t length = len + file_offs;
     res = fs->hal_wr((u8_t *)dst_ohdr_addr + offsetof(niffs_object_hdr, len), (u8_t *)&length, sizeof(u32_t));
-    if (res) return res;
+    check(res);
     // .. write flag..
     niffs_flag flag = _NIFFS_FLAG_WRITTEN;
     res = fs->hal_wr((u8_t *)dst_ohdr_addr + offsetof(niffs_object_hdr, phdr) + offsetof(niffs_page_hdr, flag), (u8_t *)&flag, sizeof(niffs_flag));
-    if (res) return res;
+    check(res);
     // check if object header moved
     if (dst_ohdr_addr != orig_ohdr_addr) {
       NIFFS_DBG("append: header update inform, moved from pix %04x\n", orig_obj_pix);
       niffs_inform_page_movement(fs, orig_obj_pix, dst_ohdr_pix);
       // .. and remove old
       res = niffs_delete_page(fs, orig_obj_pix);
-      if (res) return res;
+      check(res);
     }
   }
 
@@ -1065,7 +1076,7 @@ int niffs_modify(niffs *fs, int fd_ix, u32_t offset, const u8_t *src, u32_t len)
   int res = NIFFS_OK;
   niffs_file_desc *fd;
   res = niffs_get_filedesc(fs, fd_ix, &fd);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   if ((fd->flags & NIFFS_O_WRONLY) == 0) {
     return ERR_NIFFS_NOT_WRITABLE;
@@ -1090,7 +1101,7 @@ int niffs_modify(niffs *fs, int fd_ix, u32_t offset, const u8_t *src, u32_t len)
   u32_t needed_pages = end-start+1;
   res = niffs_ensure_free_pages(fs, needed_pages);
 
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   // repopulate if moved by gc
   if (fd->obj_pix != orig_obj_pix) {
@@ -1121,7 +1132,7 @@ int niffs_modify(niffs *fs, int fd_ix, u32_t offset, const u8_t *src, u32_t len)
     // find original page
     niffs_page_ix orig_pix;
     res = niffs_find_page(fs, &orig_pix, fd->obj_id, spix, search_pix);
-    if (res) return res;
+    check(res);
     search_pix = orig_pix;
 
     NIFFS_DBG("modify: pix %04x oid:%04x spix:%i offs:%i len:%i\n", orig_pix, fd->obj_id, spix, pdata_offs, avail);
@@ -1148,16 +1159,16 @@ int niffs_modify(niffs *fs, int fd_ix, u32_t offset, const u8_t *src, u32_t len)
 
       // find dst page & move src
       res = niffs_find_free_page(fs, &new_pix, NIFFS_EXCL_SECT_NONE);
-      if (res) return res;
+      check(res);
       res = niffs_move_page(fs, orig_pix, new_pix, fs->buf, pdata_len +
           (spix == 0 ? sizeof(niffs_object_hdr) - sizeof(niffs_page_hdr) : 0), _NIFFS_FLAG_WRITTEN);
-      if (res) return res;
+      check(res);
     } else {
       // a full page
       res = niffs_find_free_page(fs, &new_pix, NIFFS_EXCL_SECT_NONE);
-      if (res) return res;
+      check(res);
       res = niffs_move_page(fs, orig_pix, new_pix, src, avail, _NIFFS_FLAG_WRITTEN);
-      if (res) return res;
+      check(res);
     }
 
     written += avail;
@@ -1193,7 +1204,7 @@ int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
 
   niffs_file_desc *fd;
   res = niffs_get_filedesc(fs, fd_ix, &fd);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   if ((fd->flags & NIFFS_O_WRONLY) == 0) {
     return ERR_NIFFS_NOT_WRITABLE;
@@ -1207,7 +1218,7 @@ int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
   u32_t flen = orig_ohdr->len == NIFFS_UNDEF_LEN ? 0 : orig_ohdr->len;
   if (orig_ohdr->phdr.id.obj_id != fd->obj_id) res = ERR_NIFFS_INCOHERENT_ID;
   else if (new_len > flen) res = ERR_NIFFS_TRUNCATE_BEYOND_FILE;
-  if (res) return res;
+  check(res);
   if (new_len != 0 && new_len == flen) {
     return NIFFS_OK;
   }
@@ -1218,7 +1229,7 @@ int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
   } else {
     // one extra for new object header
     res = niffs_ensure_free_pages(fs, 1);
-    if (res) return res;
+    check(res);
   }
 
   // repopulate if moved by gc
@@ -1226,7 +1237,7 @@ int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
     orig_ohdr = (niffs_object_hdr *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix);
     if (orig_ohdr->phdr.id.obj_id != fd->obj_id) res = ERR_NIFFS_INCOHERENT_ID;
   }
-  if (res) return res;
+  check(res);
 
   NIFFS_DBG("trunc : make oid %04x %i bytes\n", orig_ohdr->phdr.id.obj_id, new_len);
 
@@ -1235,12 +1246,12 @@ int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
     // changing existing file - write flag, mark obj header as MOVI
     niffs_flag flag = _NIFFS_FLAG_MOVING;
     res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix) + offsetof(niffs_object_hdr, phdr) + offsetof(niffs_page_hdr, flag), (u8_t *)&flag, sizeof(niffs_flag));
-    if (res) return res;
+    check(res);
 
     // rewrite new object header, new length
     niffs_page_ix new_pix;
     res = niffs_find_free_page(fs, &new_pix, NIFFS_EXCL_SECT_NONE);
-    if (res) return res;
+    check(res);
 
     // copy from old hdr
     _NIFFS_RD(fs, fs->buf, _NIFFS_PIX_2_ADDR(fs, fd->obj_pix), fs->page_size);
@@ -1249,7 +1260,7 @@ int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
 
     // move header page, rewrite length data
     res = niffs_move_page(fs, fd->obj_pix, new_pix, fs->buf + sizeof(niffs_page_hdr), fs->page_size - sizeof(niffs_page_hdr), _NIFFS_FLAG_WRITTEN);
-    if (res) return res;
+    check(res);
   } else {
     // removing, zero length
     if (fd->type ==_NIFFS_FTYPE_LINFILE) {
@@ -1259,7 +1270,7 @@ int niffs_truncate(niffs *fs, int fd_ix, u32_t new_len) {
     } else {
       u32_t length = 0;
       res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix) + offsetof(niffs_object_hdr, len), (u8_t *)&length, sizeof(u32_t));
-      if (res) return res;
+      check(res);
     }
   }
 
@@ -1296,10 +1307,10 @@ int niffs_rename(niffs *fs, const char *old_name, const char *new_name) {
   if (new_name == 0) return ERR_NIFFS_NULL_PTR;
 
   res = niffs_ensure_free_pages(fs, 1);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   res = niffs_find_free_page(fs, &dst_pix, NIFFS_EXCL_SECT_NONE);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   NIFFS_DBG("rename: name:%s->%s\n", old_name, new_name);
 
@@ -1364,7 +1375,7 @@ static int niffs_ensure_free_pages(niffs *fs, u32_t pages) {
     }
     u32_t freed_pages;
     res = niffs_gc(fs, &freed_pages, 0);
-    if (res != NIFFS_OK) return res;
+    check(res);
     run++;
   }
 
@@ -1386,7 +1397,7 @@ static int niffs_ensure_free_pages(niffs *fs, u32_t pages) {
       u32_t freed_pages;
       // only allow gcing of a full page each fourth run
       res = niffs_gc(fs, &freed_pages, ((run - 1) % 4) == 0);
-      if (res != NIFFS_OK) return res;
+      check(res);
 #ifdef NIFFS_GC_DBG
       if (freed_pages == 0) {
         zero_runs++;
@@ -1500,7 +1511,7 @@ static int niffs_gc_find_candidate_sector(niffs *fs, niffs_gc_sector_cand *cand,
 int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_sector) {
   niffs_gc_sector_cand cand;
   int res = niffs_gc_find_candidate_sector(fs, &cand, allow_full_sector);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   // move all busy pages within sector
   niffs_page_ix ipix;
@@ -1511,15 +1522,15 @@ int niffs_gc(niffs *fs, u32_t *freed_pages, u8_t allow_full_sector) {
       niffs_page_ix new_pix;
       // find dst page & move src
       res = niffs_find_free_page(fs, &new_pix, cand.sector);
-      if (res) return res;
+      check(res);
       res = niffs_move_page(fs, pix, new_pix, 0, 0, NIFFS_FLAG_MOVE_KEEP);
-      if (res) return res;
+      check(res);
     }
   }
 
   // erase sector
   res = niffs_erase_sector(fs, cand.sector);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   // move free cursor if necessary
   if (_NIFFS_PIX_2_SECTOR(fs, fs->last_free_pix) == cand.sector) {
@@ -1572,7 +1583,7 @@ static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, nif
     NIFFS_DBG("check : pix %04x bad flag status fl/id:%04x/%04x delete hard\n", pix, phdr->flag, phdr->id.raw);
     niffs_page_id_raw delete_raw_id = _NIFFS_PAGE_DELE_ID;
     res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, pix) + offsetof(niffs_page_hdr, id), (u8_t *)&delete_raw_id, sizeof(niffs_page_id_raw));
-    if (res != NIFFS_OK) return res;
+    check(res);
   } else if (!_NIFFS_IS_FREE(phdr) && !_NIFFS_IS_DELE(phdr)) {
     niffs_obj_id oid = phdr->id.obj_id;
     --oid;
@@ -1581,12 +1592,12 @@ static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, nif
       // found a page with id not belonging to any object header
       NIFFS_DBG("check : pix %04x orphan by id oid:%04x delete\n", pix, oid+1);
       res = niffs_delete_page(fs, pix);
-      if (res != NIFFS_OK) return res;
+      check(res);
     } else if (phdr->id.spix == 0 && ohdr->len == 0) {
       // found an object header page with size 0
       NIFFS_DBG("check : pix %04x unfinished remove oid:%04x delete\n", pix, oid+1);
       res = niffs_delete_page(fs, pix);
-      if (res != NIFFS_OK) return res;
+      check(res);
     } else if (phdr->id.spix == 0 &&
         (((sizeof(niffs_span_ix) < 4 && ohdr->len != NIFFS_UNDEF_LEN && ohdr->len > (1 << (8*sizeof(niffs_span_ix))) * fs->page_size)) ||
         ohdr->len > fs->sector_size * (fs->sectors-1))) {
@@ -1594,7 +1605,7 @@ static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, nif
       // found an object header page with crazy size
       NIFFS_DBG("check : pix %04x bad length oid:%04x delete\n", pix, oid+1);
       res = niffs_delete_page(fs, pix);
-      if (res != NIFFS_OK) return res;
+      check(res);
     }
   } else if (_NIFFS_IS_FREE(phdr) && _NIFFS_IS_CLEA(phdr)) {
     u32_t ix;
@@ -1604,7 +1615,7 @@ static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, nif
         NIFFS_DBG("check : pix %04x free but contains data, delete hard\n", pix);
         niffs_page_id_raw delete_raw_id = _NIFFS_PAGE_DELE_ID;
         res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, pix) + offsetof(niffs_page_hdr, id), (u8_t *)&delete_raw_id, sizeof(niffs_page_id_raw));
-        if (res != NIFFS_OK) return res;
+        check(res);
         break;
       }
     }
@@ -1645,7 +1656,7 @@ static int niffs_chk_unfinished_movi_data_pages_v(niffs *fs, niffs_page_ix pix, 
         // found written page, delete this
         NIFFS_DBG("check : pix %04x MOVI page has WRIT sibling: delete\n", pix);
         res = niffs_delete_page(fs, pix);
-        if (res != NIFFS_OK) return res;
+        check(res);
       } else if (res == NIFFS_VIS_END) {
         res = NIFFS_OK;
         // found no written page, update this
@@ -1659,7 +1670,7 @@ static int niffs_chk_unfinished_movi_data_pages_v(niffs *fs, niffs_page_ix pix, 
           res = niffs_move_page(fs, pix, new_pix, 0, 0, _NIFFS_FLAG_WRITTEN);
         }
 
-        if (res != NIFFS_OK) return res;
+        check(res);
       } else {
         // erroneous operation, bail out
         return res;
@@ -1717,7 +1728,7 @@ static int niffs_chk_movi_objhdr_pages_tidy_v(niffs *fs, niffs_page_ix pix, niff
     if (phdr->id.spix > 0 && phdr->id.spix > t_arg->gt_spix && phdr->id.obj_id == t_arg->oid) {
       NIFFS_DBG("  chck: pix %04x found MOVI obj hdr oid:%04x spix:%i delete\n", pix, phdr->id.obj_id, phdr->id.spix);
       res = niffs_delete_page(fs, pix);
-      if (res != NIFFS_OK) return res;
+      check(res);
     }
   }
   return NIFFS_VIS_CONT;
@@ -1736,7 +1747,7 @@ static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_p
   NIFFS_DBG("  chck: find pages oid:%04x spix > %i for deleting\n", t_arg.oid, t_arg.gt_spix);
   res = niffs_traverse(fs, 0, 0, niffs_chk_movi_objhdr_pages_tidy_v, &t_arg);
   if (res == NIFFS_VIS_END) res = NIFFS_OK;
-  if (res) return res;
+  check(res);
 
   // move obj hdr as written
   NIFFS_DBG("  chck: pix %04x move as written\n", pix);
@@ -1769,7 +1780,7 @@ static int niffs_find_duplicate_obj_hdr_ids_v(niffs *fs, niffs_page_ix pix, niff
           // id found before, got duplicate
           NIFFS_DBG("  chck: pix %04x found duplicate obj hdr oid:%04x delete\n", pix, phdr->id.obj_id);
           int res = niffs_delete_page(fs, pix);
-          if (res != NIFFS_OK) return res;
+          check(res);
 
         } else {
           // id not found, mark it
@@ -1806,7 +1817,7 @@ static int niffs_chk_movi_objhdr_pages(niffs *fs) {
     res = niffs_traverse(fs, arg.last_pix, 0, niffs_chk_movi_objhdr_pages_v, &arg);
     u8_t cont = res == NIFFS_VIS_END;
     if (res == NIFFS_VIS_END) res = NIFFS_OK;
-    if (res != NIFFS_OK) return res;
+    check(res);
 
     // remove all pages with too high a span index for this object header
     NIFFS_DBG("check : find MOVI obj pix:%04x--end - got us %i entries\n", arg.last_pix, arg.ix);
@@ -1814,7 +1825,7 @@ static int niffs_chk_movi_objhdr_pages(niffs *fs) {
     niffs_page_ix *log = (niffs_page_ix *)fs->buf;
     for (i = 0; i < arg.ix; i++) {
       res = niffs_chk_tidy_movi_objhdr_page(fs, log[i], 0);
-      if (res != NIFFS_OK) return res;
+      check(res);
     }
 
     if (cont) {
@@ -1847,35 +1858,35 @@ int niffs_chk(niffs *fs) {
 
   // fixes aborted sector erases
   int res = niffs_setup(fs);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   // fixes pages with bad headers - aborted in midst of movements
   // fixes object headers with zero length - aborted truncate to zero
   // fixes orphaned data pages, pages with oids having no corresponding object header - safety cleanup
   NIFFS_DBG("check : * delete orphans by id, aborted removes, bad flags, dirty pages\n");
   res = niffs_chk_delete_orphans_by_id_and_bad_flag_and_dirty_pages(fs);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   // fixes data pages marked as moving -
   //     either moves them as written if written page never became finalized
   //     or else deletes moving page if corresponding written page was found
   NIFFS_DBG("check : * finalize moving pages\n");
   res = niffs_chk_unfinished_movi_data_pages(fs);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   // fixes object headers with duplicate ids
   NIFFS_DBG("check : * remove object headers with duplicate ids\n");
   res = niffs_find_duplicate_obj_hdr_ids(fs);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   // fixes orphaned data pages by aborted file length update
   NIFFS_DBG("check : * delete orphans by length\n");
   res = niffs_chk_movi_objhdr_pages(fs);
-  if (res != NIFFS_OK) return res;
+  check(res);
 
   // do a gc if crammed
   res = niffs_setup(fs); // recount pages
-  if (res != NIFFS_OK) return res;
+  check(res);
   if (fs->free_pages < fs->pages_per_sector) {
     NIFFS_DBG("check : * gc needed, %i free, must at least have %i\n", fs->free_pages, fs->pages_per_sector);
     res = niffs_gc(fs, &dummy, 0);
@@ -2037,7 +2048,7 @@ int NIFFS_format(niffs *fs) {
   u32_t s;
   for (s = 0; res == NIFFS_OK && s < fs->sectors; s++) {
     res = niffs_erase_sector(fs, s);
-    if (res != NIFFS_OK) return res;
+    check(res);
     niffs_sector_hdr *shdr = (niffs_sector_hdr *)_NIFFS_SECTOR_2_ADDR(fs, s);
     if (shdr->abra != _NIFFS_SECT_MAGIC(fs)) {
       NIFFS_DBG("\nfatal: erase sector %i hdr magic, expected %08x, was %08x\n",
@@ -2051,7 +2062,7 @@ int NIFFS_format(niffs *fs) {
   for (s = fs->sectors; res == NIFFS_OK && s < fs->sectors+fs->lin_sectors; s++) {
     NIFFS_DBG("erase : sector %i linear\n", s);
     res = fs->hal_er(_NIFFS_SECTOR_2_ADDR(fs, s), fs->sector_size);
-    if (res != NIFFS_OK) return res;
+    check(res);
   }
 #endif
   return res;
@@ -2060,7 +2071,7 @@ int NIFFS_format(niffs *fs) {
 int NIFFS_mount(niffs *fs) {
   if (fs->mounted) return ERR_NIFFS_MOUNTED;
   int res = niffs_setup(fs);
-  if (res != NIFFS_OK) return res;
+  check(res);
   fs->mounted = 1;
   return NIFFS_OK;
 }
