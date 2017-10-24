@@ -269,8 +269,12 @@ int NIFFS_mknod_linear(niffs *fs, const char *name, u32_t resv_size);
  * @param path          the path of the new file
  * @param flags         the flags for the open command, can be combinations of
  *                      NIFFS_O_APPEND, NIFFS_O_TRUNC, NIFFS_O_CREAT, NIFFS_O_RDONLY,
- *                      NIFFS_O_WRONLY, NIFFS_O_RDWR, NIFFS_O_DIRECT
+ *                      NIFFS_O_WRONLY, NIFFS_O_RDWR, NIFFS_O_DIRECT, NIFFS_O_LINEAR
  * @param mode          ignored, for posix compliance
+ * @return file descriptor or error
+ *
+ * Note: when creating files with NIFFS_O_LINEAR, NIFFS_O_APPEND is
+ * automatically set. Linear files cannot be modified, only appended.
  */
 int NIFFS_open(niffs *fs, const char *name, u8_t flags, niffs_mode mode);
 

@@ -250,7 +250,7 @@ TEST(sys_file_by_open_flags)
     res = NIFFS_write(&fs, fd, &data[offs], wlen);
     TEST_CHECK_EQ(res, wlen);
     res = NIFFS_lseek(&fs, fd, 0, NIFFS_SEEK_SET);
-    TEST_CHECK_EQ(res, NIFFS_OK);
+    TEST_CHECK_EQ(res, 0);
     offs += wlen;
   }
   (void)NIFFS_close(&fs, fd);
@@ -543,7 +543,7 @@ TEST(sys_read_ptr_beyond)
   TEST_CHECK_EQ(res, len);
   TEST_CHECK_EQ(rlen, len);
   res = NIFFS_lseek(&fs, fd, 0, NIFFS_SEEK_END);
-  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(res, len);
   res = niffs_emul_read_ptr(&fs, fd, &rptr, &rlen);
   TEST_CHECK_EQ(res, ERR_NIFFS_END_OF_FILE);
   TEST_CHECK_EQ(rlen, 0);
@@ -693,7 +693,7 @@ TEST(sys_lseek_simple_modification) {
   TEST_CHECK_EQ(res, NIFFS_OK);
 
   res = NIFFS_lseek(&fs, fd, len/2, NIFFS_SEEK_SET);
-  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(res, len/2);
 
   u8_t *nbuf = niffs_emul_create_data("newdata", len/2);
   res = NIFFS_write(&fs, fd, nbuf, len/2);
@@ -735,7 +735,7 @@ TEST(sys_lseek_modification_append) {
   TEST_CHECK_EQ(res, NIFFS_OK);
 
   res = NIFFS_lseek(&fs, fd, len/2, NIFFS_SEEK_SET);
-  TEST_CHECK_EQ(res, NIFFS_OK);
+  TEST_CHECK_EQ(res, len/2);
 
   u8_t *nbuf = niffs_emul_create_data("newdata", len);
   res = NIFFS_write(&fs, fd, nbuf, len);
@@ -780,8 +780,8 @@ TEST(sys_lseek_modification_append_multi) {
 
   while (runs--) {
     res = NIFFS_lseek(&fs, fd, -len/2, NIFFS_SEEK_END);
-    TEST_CHECK_EQ(res, NIFFS_OK);
     offs -= len/2;
+    TEST_CHECK_EQ(res, offs);
 
     char seedname[32];
     sprintf(seedname, "mod%i", runs);
@@ -822,14 +822,14 @@ TEST(sys_lseek) {
 
   for (i = 1; i < s.size; i++) {
     res = NIFFS_lseek(&fs, fd, -i, NIFFS_SEEK_END);
-    TEST_CHECK_EQ(res, NIFFS_OK);
+    TEST_CHECK_EQ(res, len-i);
     offs = s.size - i;
     TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
   }
 
   for (i = 0; i < s.size; i++) {
     res = NIFFS_lseek(&fs, fd, i, NIFFS_SEEK_SET);
-    TEST_CHECK_EQ(res, NIFFS_OK);
+    TEST_CHECK_EQ(res, i);
     offs = i;
     TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
   }
@@ -840,13 +840,13 @@ TEST(sys_lseek) {
   TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
   for (i = 0; i < s.size; i++) {
     res = NIFFS_lseek(&fs, fd, 1, NIFFS_SEEK_CUR);
-    TEST_CHECK_EQ(res, NIFFS_OK);
+    TEST_CHECK_EQ(res, i+1);
     offs++;
     TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
   }
   for (i = 0; i < s.size; i++) {
     res = NIFFS_lseek(&fs, fd, -1, NIFFS_SEEK_CUR);
-    TEST_CHECK_EQ(res, NIFFS_OK);
+    TEST_CHECK_EQ(res, s.size-i-1);
     offs--;
     TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
   }
@@ -882,11 +882,11 @@ TEST(sys_lseek_read_ftell) {
     if (offs + 41 + sizeof(buf) >= len) {
       offs = (offs + 41 + sizeof(buf)) % len;
       res = NIFFS_lseek(&fs, fd, offs, NIFFS_SEEK_SET);
-      TEST_CHECK_EQ(res, NIFFS_OK);
+      TEST_CHECK_EQ(res, offs);
       TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
     }
     res = NIFFS_lseek(&fs, fd, 41, NIFFS_SEEK_CUR);
-    TEST_CHECK_EQ(res, NIFFS_OK);
+    TEST_CHECK_EQ(res, offs+41);
     offs += 41;
     TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
     res = NIFFS_read(&fs, fd, buf, sizeof(buf));
@@ -900,7 +900,7 @@ TEST(sys_lseek_read_ftell) {
     offs += sizeof(buf);
 
     res = NIFFS_lseek(&fs, fd, -((u32_t)sizeof(buf)+11), NIFFS_SEEK_CUR);
-    TEST_CHECK_EQ(res, NIFFS_OK);
+    TEST_CHECK_EQ(res, offs - ((u32_t)sizeof(buf)+11));
     offs -= (sizeof(buf)+11);
     TEST_CHECK_EQ(NIFFS_ftell(&fs, fd), offs);
     res = NIFFS_read(&fs, fd, buf, sizeof(buf));
@@ -959,6 +959,40 @@ TEST(sys_lin_open) {
 }
 TEST_END
 
+TEST(sys_lin_lseek) {
+  int res;
+  int fd;
+
+  const u32_t fsize = fs.lin_sectors * fs.sector_size;
+u8_t *data = niffs_emul_create_data("linear", fsize);
+  TEST_CHECK(data);
+
+  fd = NIFFS_open(&fs, "linear", NIFFS_O_CREAT | NIFFS_O_TRUNC | NIFFS_O_LINEAR | NIFFS_O_RDWR, 0);
+  TEST_CHECK_GE(fd,0);
+  res = NIFFS_write(&fs, fd, data, fsize);
+  TEST_CHECK_EQ(res, fsize);
+  res = NIFFS_close(&fs, fd);
+  TEST_CHECK_EQ(res, NIFFS_OK);
+  fd = NIFFS_open(&fs, "linear", NIFFS_O_RDONLY, 0);
+  TEST_CHECK_GE(fd,0);
+  res = niffs_emul_verify_file(&fs, "linear");
+  TEST_CHECK_EQ(res, NIFFS_OK);
+
+  u32_t offs;
+  for (offs = 0; offs < fsize; offs += 3) {
+    u8_t *ptr;
+    u32_t len;
+    res = NIFFS_lseek(&fs, fd, offs, NIFFS_SEEK_SET);
+    TEST_CHECK_EQ(res, offs);
+    res = NIFFS_read_ptr(&fs, fd, &ptr, &len);
+    TEST_CHECK_EQ(res, fsize - offs);
+    TEST_CHECK_EQ(len, fsize - offs);
+  }
+
+  return TEST_RES_OK;
+}
+TEST_END
+
 #endif // NIFFS_LINEAR_AREA
 
 SUITE_TESTS(niffs_sys_tests)
@@ -991,5 +1025,6 @@ SUITE_TESTS(niffs_sys_tests)
   ADD_TEST(sys_lseek_read_ftell)
 #if NIFFS_LINEAR_AREA
   ADD_TEST(sys_lin_open)
+  ADD_TEST(sys_lin_lseek)
 #endif // NIFFS_LINEAR_AREA
 SUITE_END(niffs_sys_tests)

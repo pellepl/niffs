@@ -148,9 +148,16 @@ int NIFFS_read(niffs *fs, int fd_ix, u8_t *dst, u32_t len) {
   return res == NIFFS_OK ? read_len : res;
 }
 
-int NIFFS_lseek(niffs *fs, int fd, s32_t offs, int whence) {
+int NIFFS_lseek(niffs *fs, int fd_ix, s32_t offs, int whence) {
   if (!fs->mounted) return ERR_NIFFS_NOT_MOUNTED;
-  return niffs_seek(fs, fd, offs, whence);
+  int res = niffs_seek(fs, fd_ix, offs, whence);
+  if (res == NIFFS_OK) {
+    niffs_file_desc *fd;
+    res = niffs_get_filedesc(fs, fd_ix, &fd);
+    if (res != NIFFS_OK) return res;
+    return (int)fd->offs;
+  }
+  return res;
 }
 
 int NIFFS_remove(niffs *fs, const char *name) {

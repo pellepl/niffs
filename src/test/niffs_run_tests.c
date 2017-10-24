@@ -808,7 +808,7 @@ TEST(run_create_modify_append_some_garbled_one_constant_aborted)
       NIFFS_DBG_TEST("modify %s %i bytes offs %i / %i\n", name, len, offs, flen);
 
       res = NIFFS_lseek(&fs, fd, offs, NIFFS_SEEK_SET);
-      TEST_CHECK_EQ(res, NIFFS_OK);
+      TEST_CHECK_EQ(res, offs);
 
       u8_t *mdata;
       if (strcmp("constant", name) == 0) {
