@@ -48,7 +48,7 @@ typedef signed char s8_t;
 // niffs config
 
 extern u8_t __dbg;
-#define NIFFS_DBG_DEFAULT           0 // TODO
+#define NIFFS_DBG_DEFAULT           0
 #define NIFFS_DBG(_f, ...)          if (__dbg) printf(_f, ## __VA_ARGS__)
 #define NIFFS_NAME_LEN              (16)  // max 16 characters file name
 #define NIFFS_OBJ_ID_BITS           (8)   // max 256-2 files

@@ -330,7 +330,7 @@ TESTATIC int niffs_move_page(niffs *fs, niffs_page_ix src_pix, niffs_page_ix dst
   }
 
   fs->free_pages--;
-  if (data == 0 && (!src_clear || !src_phdr->id.spix != 0)) {
+  if (data == 0 && (!src_clear || src_phdr->id.spix == 0)) {
     // .. page data ..
     res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, dst_pix) + sizeof(niffs_page_hdr), (u8_t *)src_phdr  + sizeof(niffs_page_hdr), fs->page_size - sizeof(niffs_page_hdr));
     check(res);
@@ -686,6 +686,7 @@ int niffs_open(niffs *fs, const char *name, niffs_fd_flags flags) {
   } else if (res != NIFFS_OK) {
     return res;
   }
+  NIFFS_DBG("open  : \"%s\" found @ pix %04x\n", name, arg.pix);
 
   niffs_memset(fd, 0, sizeof(niffs_file_desc));
   fd->obj_id = arg.oid;
@@ -1579,9 +1580,11 @@ static int niffs_map_obj_hdr_ids_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr 
     if (phdr->id.spix == 0) {
       // object header page
       niffs_object_hdr *ohdr = (niffs_object_hdr *)phdr;
-      if (ohdr->len != NIFFS_UNDEF_LEN && ohdr->len > 0) {
-        // only mark those having a defined length > 0, this way we will remove all unfinished appends
-        // to clean file and unfinished deletions
+      if (ohdr->len != NIFFS_UNDEF_LEN && ohdr->len > 0 && ohdr->type != _NIFFS_FTYPE_LINFILE) {
+        // Only mark those having a defined length > 0, this way we will remove all unfinished appends
+        // to clean file and unfinished deletions.
+        // Linear files are not examined, as corresponding data does not reside amongst pages
+        // but in a different area.
         niffs_obj_id oid = phdr->id.obj_id;
         --oid;
         fs->buf[oid/8] |= 1<<(oid&7);
@@ -1594,9 +1597,10 @@ static int niffs_map_obj_hdr_ids_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr 
 static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, niffs_page_hdr *phdr, void *v_arg) {
   (void)v_arg;
   int res;
-  if (!_NIFFS_IS_FLAG_VALID(phdr) ||
+  if (!_NIFFS_IS_DELE(phdr) &&
+      (!_NIFFS_IS_FLAG_VALID(phdr) ||
       (_NIFFS_IS_FREE(phdr) && (_NIFFS_IS_WRIT(phdr) || _NIFFS_IS_MOVI(phdr))) ||
-      (!_NIFFS_IS_FREE(phdr) && _NIFFS_IS_CLEA(phdr))) {
+      (!_NIFFS_IS_FREE(phdr) && _NIFFS_IS_CLEA(phdr)))) {
     // found a page bad flag status
     NIFFS_DBG("check : pix %04x bad flag status fl/id:%04x/%04x delete hard\n", pix, phdr->flag, phdr->id.raw);
     niffs_page_id_raw delete_raw_id = _NIFFS_PAGE_DELE_ID;
@@ -1616,10 +1620,11 @@ static int niffs_chk_delete_orphan_bad_dirty_v(niffs *fs, niffs_page_ix pix, nif
       NIFFS_DBG("check : pix %04x unfinished remove oid:%04x delete\n", pix, oid+1);
       res = niffs_delete_page(fs, pix);
       check(res);
-    } else if (phdr->id.spix == 0 &&
-        (((sizeof(niffs_span_ix) < 4 && ohdr->len != NIFFS_UNDEF_LEN && ohdr->len > (1 << (8*sizeof(niffs_span_ix))) * fs->page_size)) ||
+    } else if (phdr->id.spix == 0 && ohdr->type != _NIFFS_FTYPE_LINFILE &&
+        (((sizeof(niffs_span_ix) < 4 &&
+            ohdr->len != NIFFS_UNDEF_LEN &&
+            ohdr->len > (1 << (8*sizeof(niffs_span_ix))) * fs->page_size)) ||
         ohdr->len > fs->sector_size * (fs->sectors-1))) {
-      // TODO check if linear file
       // found an object header page with crazy size
       NIFFS_DBG("check : pix %04x bad length oid:%04x delete\n", pix, oid+1);
       res = niffs_delete_page(fs, pix);
@@ -1770,10 +1775,14 @@ static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_p
   if (_NIFFS_OFFS_2_PDATA_OFFS(fs, ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len) == 0) {
     t_arg.gt_spix--;
   }
-  NIFFS_DBG("  chck: find pages oid:%04x spix > %i for deleting\n", t_arg.oid, t_arg.gt_spix);
-  res = niffs_traverse(fs, 0, 0, niffs_chk_movi_objhdr_pages_tidy_v, &t_arg);
-  if (res == NIFFS_VIS_END) res = NIFFS_OK;
-  check(res);
+  if (ohdr->type != _NIFFS_FTYPE_LINFILE) {
+    // linear files do not have other pages than object headers in normal area,
+    // so this operation will never find anything
+    NIFFS_DBG("  chck: find pages oid:%04x spix > %i for deleting\n", t_arg.oid, t_arg.gt_spix);
+    res = niffs_traverse(fs, 0, 0, niffs_chk_movi_objhdr_pages_tidy_v, &t_arg);
+    if (res == NIFFS_VIS_END) res = NIFFS_OK;
+    check(res);
+  }
 
   // move obj hdr as written
   NIFFS_DBG("  chck: pix %04x move as written\n", pix);
@@ -1785,8 +1794,37 @@ static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_p
     res = NIFFS_OK;
   } else {
     if (dst_pix) *dst_pix = new_pix;
-    res = niffs_move_page(fs, pix, new_pix, 0, 0, _NIFFS_FLAG_WRITTEN);
-    check(res);
+    if (ohdr->type == _NIFFS_FTYPE_LINFILE) {
+      // linear: check file length, search in last file sector until only ff:s, set length to that
+      niffs_linear_file_hdr *lfhdr = (niffs_linear_file_hdr *)ohdr;
+      u32_t lflen = lfhdr->ohdr.len;
+      u32_t lsix = lfhdr->start_sector + lflen / fs->sector_size;
+      if (lsix < fs->sectors || lsix > fs->sectors + fs->lin_sectors) {
+        // oob, corrupt lfhdr
+        NIFFS_DBG("  chck: linear: corrupt - size oob - last sector %i, deleting %04x\n", lsix, pix);
+        res = niffs_delete_page(fs, pix);
+        check(res);
+      } else {
+        u8_t *sector = _NIFFS_SECTOR_2_ADDR(fs, lsix);
+        u32_t wix;
+        u32_t last_non_ff = lflen % fs->sector_size;
+        for (wix = last_non_ff; wix < fs->sector_size; wix++) {
+          if (sector[wix] != 0xff) last_non_ff = wix;
+        }
+        u32_t new_len = lflen + (last_non_ff + 1 - (lflen % fs->sector_size));
+        niffs_linear_file_hdr new_lfhdr;
+        niffs_memcpy(&new_lfhdr, lfhdr, sizeof(niffs_linear_file_hdr));
+        new_lfhdr.ohdr.len = new_len;
+        NIFFS_DBG("  chck: linear: updating size from %i to %i\n", lflen, new_len);
+        res = niffs_move_page(fs, pix, new_pix,
+            (u8_t *)&new_lfhdr + sizeof(niffs_page_hdr), sizeof(niffs_linear_file_hdr) - sizeof(niffs_page_hdr),
+            _NIFFS_FLAG_WRITTEN);
+        check(res);
+      }
+    } else {
+      res = niffs_move_page(fs, pix, new_pix, 0, 0, _NIFFS_FLAG_WRITTEN);
+      check(res);
+    }
   }
   return res;
 }

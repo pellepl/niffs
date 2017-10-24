@@ -78,7 +78,8 @@ static int emul_hal_write_f(u8_t *addr, const u8_t *src, u32_t len) {
     u8_t b = *src;
 #ifdef TEST_CHECK_WRITE_ON_NONERASED_DATA_OTHER_THAN_ZERO
     if (b != 0 && *addr != 0xff) {
-      printf("writing illegally to address %p: %02x @ %02x\n", addr, b, *addr);
+      printf("writing illegally to address %p (addr:%i): %02x @ %02x, ix:%i\n",
+          addr, (u32_t)((intptr_t)addr - (intptr_t)_flash), b, *addr, i);
       return ERR_NIFFS_TEST_WRITE_TO_NONERASED_DATA;
     }
 #endif

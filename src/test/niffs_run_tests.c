@@ -1094,6 +1094,66 @@ TEST(run_full_single_byte)
 }
 TEST_END
 
+#if NIFFS_LINEAR_AREA
+TEST(run_lin_aborted)
+{
+  const u32_t flen = fs.lin_sectors * fs.sector_size;
+  u8_t *data = niffs_emul_create_data("lin", flen);
+  TEST_CHECK(data);
+  int res;
+
+  int fd;
+  u32_t written;
+  u8_t created = 0;
+  do {
+    if (created) {
+      fd = NIFFS_open(&fs, "lin", NIFFS_O_LINEAR | NIFFS_O_WRONLY | NIFFS_O_APPEND, 0);
+    } else {
+      fd = NIFFS_mknod_linear(&fs, "lin", flen);
+      created = 1;
+    }
+    TEST_CHECK_GE(fd, 0);
+    niffs_stat s;
+    res = NIFFS_fstat(&fs, fd, &s);
+    TEST_CHECK_EQ(res, NIFFS_OK);
+    written = s.size;
+    TEST_CHECK_LE(written, flen);
+    if (written == flen) break;
+
+    u32_t write = trand() % (flen / 100);
+    write = MAX(1, write);
+    write = MIN(flen - written, write);
+
+//    printf("---written %d, write %d\n", written, write);
+    if (trand() % 100 < 30) {
+      u32_t abort = trand() % write;
+//      printf("---abort @ %d\n", abort);
+      niffs_emul_set_write_byte_limit(abort+50);
+    } else {
+      niffs_emul_set_write_byte_limit(0);
+    }
+
+    res = NIFFS_write(&fs, fd, &data[written], write);
+    if (res == ERR_NIFFS_TEST_ABORTED_WRITE) {
+//      printf("---aborted: unmounting, checking, remounting\n");
+      TEST_CHECK_EQ(NIFFS_unmount(&fs), NIFFS_OK);
+      res = NIFFS_chk(&fs);
+      TEST_CHECK_EQ(res, NIFFS_OK);
+      TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
+    } else {
+      TEST_CHECK_EQ(res, write);
+      res = NIFFS_close(&fs, fd);
+      TEST_CHECK_EQ(res, NIFFS_OK);
+    }
+  } while (written < flen);
+
+  niffs_emul_verify_file(&fs, "lin");
+
+  return TEST_RES_OK;
+}
+TEST_END
+#endif // NIFFS_LINEAR_AREA
+
 SUITE_TESTS(niffs_run_tests)
   ADD_TEST(run_create_many_small)
   ADD_TEST(run_create_many_medium)
@@ -1105,4 +1165,7 @@ SUITE_TESTS(niffs_run_tests)
   ADD_TEST(run_create_modify_append_some_garbled_one_constant_aborted)
   ADD_TEST(run_full)
   ADD_TEST(run_full_single_byte)
+#if NIFFS_LINEAR_AREA
+  ADD_TEST(run_lin_aborted)
+#endif // NIFFS_LINEAR_AREA
 SUITE_END(niffs_run_tests)
