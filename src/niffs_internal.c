@@ -599,6 +599,7 @@ int niffs_create(niffs *fs, const char *name, niffs_file_type type, void *meta) 
     xtra_meta_len = sizeof(niffs_linear_file_hdr) - sizeof(niffs_page_hdr);
     break;
 #else
+    (void)meta;
     check(ERR_NIFFS_BAD_CONF);
 #endif
   }
@@ -841,6 +842,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
 
   // CHECK SPACE
   u32_t file_offs = orig_ohdr->len == NIFFS_UNDEF_LEN ? 0 : orig_ohdr->len;
+#if NIFFS_LINEAR_AREA
   if (fd->type == _NIFFS_FTYPE_LINFILE) {
     // check space in linear area
     u32_t avail_sects;
@@ -867,7 +869,10 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
       res = niffs_ensure_free_pages(fs, 1);
       check(res);
     }
-  } else {
+  }
+  else
+#endif
+  {
     if (file_offs == 0 && _NIFFS_OFFS_2_SPIX(fs, len-1) == 0) {
       // no need to allocate a new page, just fill in existing file
     } else {
@@ -900,6 +905,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
 
   // WRITE DATA
   if (fd->type == _NIFFS_FTYPE_LINFILE) {
+#if NIFFS_LINEAR_AREA
     // write atmost one sector per pass
     // if a sector boundary is crossed, check sector if empty - if not, then erase
     niffs_linear_file_hdr *lfhdr = (niffs_linear_file_hdr *)orig_ohdr;
@@ -929,6 +935,9 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
       written += avail;
       fd->offs += avail;
     }
+#else
+    check(ERR_NIFFS_LINEAR_FILE);
+#endif
   } else {
     // operate on per page basis
     while (res == NIFFS_OK && written < len) {
@@ -1794,6 +1803,7 @@ static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_p
     res = NIFFS_OK;
   } else {
     if (dst_pix) *dst_pix = new_pix;
+#if NIFFS_LINEAR_AREA
     if (ohdr->type == _NIFFS_FTYPE_LINFILE) {
       // linear: check file length, search in last file sector until only ff:s, set length to that
       niffs_linear_file_hdr *lfhdr = (niffs_linear_file_hdr *)ohdr;
@@ -1821,7 +1831,10 @@ static int niffs_chk_tidy_movi_objhdr_page(niffs *fs, niffs_page_ix pix, niffs_p
             _NIFFS_FLAG_WRITTEN);
         check(res);
       }
-    } else {
+    }
+    else
+#endif
+    {
       res = niffs_move_page(fs, pix, new_pix, 0, 0, _NIFFS_FLAG_WRITTEN);
       check(res);
     }
