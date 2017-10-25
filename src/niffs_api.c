@@ -33,7 +33,7 @@ int NIFFS_info(niffs *fs, niffs_info *i) {
     } else {
       cur_conseq_free++;
       if (taken) taken = 0;
-      max_conseq_free = MAX(cur_conseq_free, max_conseq_free);
+      max_conseq_free = NIFFS_MAX(cur_conseq_free, max_conseq_free);
     }
   }
   i->lin_max_conseq_free = max_conseq_free;
@@ -155,7 +155,7 @@ int NIFFS_read(niffs *fs, int fd_ix, u8_t *dst, u32_t len) {
     res = niffs_read_ptr(fs, fd_ix, &rptr, &rlen);
     if (res >= 0 && rlen == 0) res = ERR_NIFFS_END_OF_FILE;
     if (res >= 0) {
-      u32_t clen = MIN(len, rlen);
+      u32_t clen = NIFFS_MIN(len, rlen);
       niffs_memcpy(dst, rptr, clen);
       dst += clen;
       len -= clen;
@@ -216,7 +216,7 @@ int NIFFS_write(niffs *fs, int fd_ix, const u8_t *data, u32_t len) {
   } else {
     // check if modify and/or append
     u32_t mod_len = (ohdr->len == NIFFS_UNDEF_LEN ? 0 : ohdr->len) - fd->offs;
-    mod_len = MIN(mod_len, len);
+    mod_len = NIFFS_MIN(mod_len, len);
     if (mod_len > 0) {
       res = niffs_modify(fs, fd_ix, fd->offs, data, mod_len);
       if (res != NIFFS_OK) return res;

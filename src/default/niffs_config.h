@@ -39,6 +39,16 @@
 #endif
 #endif
 
+// max macro
+#ifndef NIFFS_MAX
+#define NIFFS_MAX(x, y) (x) > (y) ? (x) : (y)
+#endif
+
+// min macro
+#ifndef NIFFS_MIN
+#define NIFFS_MIN(x, y) (x) < (y) ? (x) : (y)
+#endif
+
 // define for assertions within niffs
 #ifndef NIFFS_ASSERT
 #define NIFFS_ASSERT(x)

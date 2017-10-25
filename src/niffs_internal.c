@@ -252,7 +252,7 @@ TESTATIC int niffs_erase_sector(niffs *fs, u32_t sector_ix) {
         // pass, max_era less but wrapped
       } else {
         // normal case
-        fs->max_era = MAX(shdr.era_cnt, fs->max_era);
+        fs->max_era = NIFFS_MAX(shdr.era_cnt, fs->max_era);
       }
     }
   } else {
@@ -408,8 +408,8 @@ static int niffs_linear_find_space_v(niffs *fs, niffs_page_ix pix, niffs_page_hd
         u32_t file_len = lfhdr->ohdr.len == NIFFS_UNDEF_LEN ? 0 : lfhdr->ohdr.len;
         u32_t resv_sects = lfhdr->resv_sectors;
         u32_t file_sects = (file_len + fs->sector_size - 1) / fs->sector_size;
-        u32_t sects = MAX(resv_sects, file_sects);
-        sects = MAX(1, sects);
+        u32_t sects = NIFFS_MAX(resv_sects, file_sects);
+        sects = NIFFS_MAX(1, sects);
         if (sects > fs->lin_sectors) {
           // length oob, do not let this file contaminate the free sector map
           // delete this file silently
@@ -745,7 +745,7 @@ int niffs_read_ptr(niffs *fs, int fd_ix, u8_t **data, u32_t *avail) {
     avail_data = rem_tot;
 #endif
   } else {
-    avail_data = MIN(rem_tot, rem_page);
+    avail_data = NIFFS_MIN(rem_tot, rem_page);
   }
 
   if (fd->type == _NIFFS_FTYPE_LINFILE) {
@@ -802,7 +802,7 @@ int niffs_seek(niffs *fs, int fd_ix, s32_t offset, u8_t whence) {
   if (coffs < 0) {
     coffs = 0;
   } else {
-    coffs = MIN(flen, (u32_t)coffs);
+    coffs = NIFFS_MIN(flen, (u32_t)coffs);
   }
 
   if (fd->type != _NIFFS_FTYPE_LINFILE &&
@@ -924,7 +924,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
       } else {
         avail = fs->sector_size - ((file_offs - data_offs) % fs->sector_size);
       }
-      avail = MIN(avail, len - written);
+      avail = NIFFS_MIN(avail, len - written);
       NIFFS_DBG("append: linear: sector %i, obj hdr oid:%04x len:%i\n",
           lfhdr->start_sector + (file_offs + data_offs) / fs->sector_size, fd->obj_id, avail);
       res = fs->hal_wr((u8_t *)_NIFFS_SECTOR_2_ADDR(fs, lfhdr->start_sector) + file_offs + data_offs, src, avail);
@@ -946,7 +946,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
       // case 1: newly created empty file, fill in object header
       if (file_offs + data_offs == 0) {
         // just fill up obj header
-        avail = MIN(len, _NIFFS_SPIX_2_PDATA_LEN(fs, 0));
+        avail = NIFFS_MIN(len, _NIFFS_SPIX_2_PDATA_LEN(fs, 0));
         NIFFS_DBG("append: pix %04x obj hdr oid:%04x spix:0 len:%i\n", fd->obj_pix, fd->obj_id, avail);
         // .. data ..
         res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, fd->obj_pix) + sizeof(niffs_object_hdr), src, avail);
@@ -959,7 +959,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
       // case 2: add a new page
       else if (_NIFFS_OFFS_2_PDATA_OFFS(fs, file_offs + data_offs) == 0) {
         // find new page
-        avail = MIN(len - written, _NIFFS_SPIX_2_PDATA_LEN(fs, 1));
+        avail = NIFFS_MIN(len - written, _NIFFS_SPIX_2_PDATA_LEN(fs, 1));
         niffs_page_ix new_pix;
         res = niffs_find_free_page(fs, &new_pix, NIFFS_EXCL_SECT_NONE);
         check(res);
@@ -989,7 +989,7 @@ int niffs_append(niffs *fs, int fd_ix, const u8_t *src, u32_t len) {
         }
 
         // find new page
-        avail = MIN(len - written,
+        avail = NIFFS_MIN(len - written,
             _NIFFS_SPIX_2_PDATA_LEN(fs, _NIFFS_OFFS_2_SPIX(fs, file_offs + data_offs)) -
             _NIFFS_OFFS_2_PDATA_OFFS(fs, file_offs + data_offs));
         niffs_page_ix new_pix;
@@ -1144,7 +1144,7 @@ int niffs_modify(niffs *fs, int fd_ix, u32_t offset, const u8_t *src, u32_t len)
     u32_t pdata_len = _NIFFS_SPIX_2_PDATA_LEN(fs, spix);
     u32_t pdata_offs = _NIFFS_OFFS_2_PDATA_OFFS(fs, offset + written);
     avail = pdata_len - pdata_offs;
-    avail = MIN(len - written, avail);
+    avail = NIFFS_MIN(len - written, avail);
 
     u32_t buf_offs = 0;
     if (spix == 0) {
@@ -1998,8 +1998,8 @@ static int niffs_setup(niffs *fs) {
       bad_sectors++;
       continue;
     }
-    max_era = MAX(shdr->era_cnt, max_era);
-    min_era = MIN(shdr->era_cnt, min_era);
+    max_era = NIFFS_MAX(shdr->era_cnt, max_era);
+    min_era = NIFFS_MIN(shdr->era_cnt, min_era);
   }
   if (min_era < ERA_CNT_MIN_OF_LIMIT && max_era > ERA_CNT_MAX_OF_LIMIT) {
     fs->max_era = min_era;
@@ -2096,7 +2096,7 @@ int NIFFS_init(niffs *fs, u8_t *phys_addr, u32_t sectors, u32_t sector_size, u32
   }
   if (buf_len < page_size || buf_len < (((sector_size * sectors) / page_size)+7) / 8) {
     NIFFS_DBG("conf  : buffer length too small, need %i bytes\n",
-        MAX(page_size, (((sector_size * sectors) / page_size)+7) / 8));
+        NIFFS_MAX(page_size, (((sector_size * sectors) / page_size)+7) / 8));
     check(ERR_NIFFS_BAD_CONF);
   }
 
