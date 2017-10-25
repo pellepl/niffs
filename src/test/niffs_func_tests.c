@@ -1621,22 +1621,22 @@ TEST(func_lin_full) {
   TEST_CHECK_EQ(NIFFS_mount(&fs), NIFFS_OK);
   int fd;
 
-  u32_t len = fs.sector_size*fs.lin_sectors+1;
+  u32_t len = fs.sector_size*fs.lin_sectors+2;
 
   u8_t *data = niffs_emul_create_data("linearbig", len);
   TEST_CHECK(data);
   fd = NIFFS_mknod_linear(&fs, "linearbig", 0);
   TEST_CHECK_GE(fd, NIFFS_OK);
-  res = NIFFS_write(&fs, fd, data, len-3);
-  TEST_CHECK_EQ(res, len-3);
-  data += len-3;
-  res = NIFFS_write(&fs, fd, data, 1);
-  TEST_CHECK_EQ(res, 1);
-  data += 1;
-  res = NIFFS_write(&fs, fd, data, 1);
-  TEST_CHECK_EQ(res, 1);
-  data += 1;
-  res = NIFFS_write(&fs, fd, data, 1);
+  res = NIFFS_write(&fs, fd, data, len-NIFFS_WORD_ALIGN*3);
+  TEST_CHECK_EQ(res, len-NIFFS_WORD_ALIGN*3);
+  data += len-NIFFS_WORD_ALIGN*3;
+  res = NIFFS_write(&fs, fd, data, NIFFS_WORD_ALIGN);
+  TEST_CHECK_EQ(res, NIFFS_WORD_ALIGN);
+  data += NIFFS_WORD_ALIGN;
+  res = NIFFS_write(&fs, fd, data, NIFFS_WORD_ALIGN);
+  TEST_CHECK_EQ(res, NIFFS_WORD_ALIGN);
+  data += NIFFS_WORD_ALIGN;
+  res = NIFFS_write(&fs, fd, data, NIFFS_WORD_ALIGN);
   TEST_CHECK_EQ(res, ERR_NIFFS_LINEAR_NO_SPACE);
   res = NIFFS_close(&fs, fd);
   TEST_CHECK_EQ(res, NIFFS_OK);

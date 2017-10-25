@@ -1121,12 +1121,13 @@ TEST(run_lin_aborted)
     if (written == flen) break;
 
     u32_t write = trand() % (flen / 100);
-    write = MAX(1, write);
+    write = (write % NIFFS_WORD_ALIGN) ? write - (write%NIFFS_WORD_ALIGN) : write;
+    write = MAX(NIFFS_WORD_ALIGN, write);
     write = MIN(flen - written, write);
 
 //    printf("---written %d, write %d\n", written, write);
     if (trand() % 100 < 30) {
-      u32_t abort = trand() % write;
+      u32_t abort = (trand() % write) & (~(NIFFS_WORD_ALIGN-1));
 //      printf("---abort @ %d\n", abort);
       niffs_emul_set_write_byte_limit(abort+50);
     } else {
