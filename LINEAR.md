@@ -73,7 +73,7 @@ We create three files, "fileA", "fileB", "fileC". We don't write anything to the
 | ------- | ------- | ------- | ------- | ------- |
 | fileA   | fileB   | fileC   | free    | free    |
 
-The meta data for all files resides on the paged part of the filesystem. This means the *linear sectors contain only data*.
+The meta data for all files resides on the paged part of the filesystem. This means the **linear sectors contain only data**.
 Now we write to fileC, two sectors worth of data.
 
 ```C
@@ -140,7 +140,7 @@ Seeking, reading, writing, statting, and removing works just like any other file
 
 Again, with the exception that writing is only by append.
 
-*This will not work as expected:*
+**This will not work as expected:**
 ```C
 // THIS WILL NOT WORK AS EXPECTED
 int fd = NIFFS_open(fs, "linearfile", NIFFS_O_WRONLY, 0);
@@ -152,8 +152,8 @@ int res = NIFFS_lseek(fs, fd, size/2, NIFFS_SEEK_SET);
 res = NIFFS_write(fs, fd, data, len);
 ```
 
-# Knowing if a file is linear or not
-By ´NIFFS_stat`, ´NIFFS_fstat`, and ´NIFFS_readdir` you check the `type` member of these structs.
+## Knowing if a file is linear or not
+By `NIFFS_stat`, `NIFFS_fstat`, and `NIFFS_readdir` you check the `type` member of these structs.
 
 # When are linear sectors erased?
 They are erased on a format, and when overwritten.
