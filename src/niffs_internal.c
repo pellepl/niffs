@@ -94,6 +94,24 @@ static void niffs_inform_page_delete(niffs *fs, niffs_page_ix pix) {
   }
 }
 
+TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix) {
+  niffs_page_id_raw delete_raw_id = _NIFFS_PAGE_DELE_ID;
+
+  niffs_page_hdr *phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, pix);
+  if (_NIFFS_IS_FREE(phdr)) {
+    check(ERR_NIFFS_DELETING_FREE_PAGE);
+  }
+  if (_NIFFS_IS_DELE(phdr)) check(ERR_NIFFS_DELETING_DELETED_PAGE);
+  NIFFS_DBG("  dele: pix %04x\n", pix);
+  int res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, pix) + offsetof(niffs_page_hdr, id), (u8_t *)&delete_raw_id, sizeof(niffs_page_id_raw));
+  check(res);
+  if (res == NIFFS_OK) {
+    fs->dele_pages++;
+    niffs_inform_page_delete(fs, pix);
+  }
+  return res;
+}
+
 int niffs_get_filedesc(niffs *fs, int fd_ix, niffs_file_desc **fd) {
   if (fd_ix < 0 || fd_ix >= (int)fs->descs_len) check(ERR_NIFFS_FILEDESC_BAD);
   if (fs->descs[fd_ix].obj_id == 0) check(ERR_NIFFS_FILEDESC_CLOSED);
@@ -266,24 +284,6 @@ TESTATIC int niffs_erase_sector(niffs *fs, u32_t sector_ix) {
   if (res == NIFFS_OK) {
     res = fs->hal_wr((u8_t *)_NIFFS_SECTOR_2_ADDR(fs, sector_ix), (u8_t *)&shdr, sizeof(niffs_sector_hdr));
     check(res);
-  }
-  return res;
-}
-
-TESTATIC int niffs_delete_page(niffs *fs, niffs_page_ix pix) {
-  niffs_page_id_raw delete_raw_id = _NIFFS_PAGE_DELE_ID;
-
-  niffs_page_hdr *phdr = (niffs_page_hdr *)_NIFFS_PIX_2_ADDR(fs, pix);
-  if (_NIFFS_IS_FREE(phdr)) {
-    check(ERR_NIFFS_DELETING_FREE_PAGE);
-  }
-  if (_NIFFS_IS_DELE(phdr)) check(ERR_NIFFS_DELETING_DELETED_PAGE);
-  NIFFS_DBG("  dele: pix %04x\n", pix);
-  int res = fs->hal_wr((u8_t *)_NIFFS_PIX_2_ADDR(fs, pix) + offsetof(niffs_page_hdr, id), (u8_t *)&delete_raw_id, sizeof(niffs_page_id_raw));
-  check(res);
-  if (res == NIFFS_OK) {
-    fs->dele_pages++;
-    niffs_inform_page_delete(fs, pix);
   }
   return res;
 }
