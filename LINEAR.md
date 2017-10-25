@@ -155,6 +155,6 @@ res = NIFFS_write(fs, fd, data, len);
 ## Knowing if a file is linear or not
 By `NIFFS_stat`, `NIFFS_fstat`, and `NIFFS_readdir` you check the `type` member of these structs.
 
-# When are linear sectors erased?
+## When are linear sectors erased?
 They are erased on a format, and when overwritten.
 
